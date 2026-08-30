@@ -1,0 +1,15 @@
+# yardwise CI
+# Placeholder pipeline: exists primarily to disable the instance-inherited
+# Auto DevOps pipeline (which fails on repos without its expected structure).
+# Real stages (lint -> test -> build -> release) land with the Django scaffold.
+
+stages:
+  - check
+
+check:
+  stage: check
+  tags:
+    - meklab-k3s
+  image: alpine:3.20
+  script:
+    - echo "yardwise bootstrap pipeline ok"

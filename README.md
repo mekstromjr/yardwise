@@ -15,7 +15,7 @@ Runs at `yardwise.meklab.net` (Tailscale-gated, Authentik SSO).
 |---|---|
 | [docs/pdd.md](docs/pdd.md) | The Product Design Document — authoritative product spec (all features, including post-MVP) |
 | [docs/scope.md](docs/scope.md) | What is in the MVP vs. deferred, and why |
-| `HANDOVER.md` (later) | Plain-English guide for maintaining this app: how to make a change, how a push becomes a deploy, what to ask Michael for |
+| [HANDOVER.md](HANDOVER.md) | Plain-English guide for maintaining this app: how to make a change, how a push becomes a deploy, what to ask Michael for |
 
 ## Status
 

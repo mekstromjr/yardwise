@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Tasks - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">The docket</div>
+  <h1>Tasks</h1>
+</header>
+
+<div class="quick-actions" style="margin-bottom:14px">
+  <a class="chip" href="?view=due" {% if view == 'due' %}style="outline:2px solid var(--fir)"{% endif %}>Due</a>
+  <a class="chip" href="?view=upcoming" {% if view == 'upcoming' %}style="outline:2px solid var(--fir)"{% endif %}>Upcoming</a>
+  <a class="chip" href="?view=completed" {% if view == 'completed' %}style="outline:2px solid var(--fir)"{% endif %}>Completed</a>
+  <a class="chip" href="?view=all" {% if view == 'all' %}style="outline:2px solid var(--fir)"{% endif %}>All</a>
+  <span style="flex:1"></span>
+  <a class="btn" href="{% url 'task-add' %}">Add task</a>
+</div>
+
+<section class="card">
+  {% for occ in occurrences %}
+    {% include "garden/tasks/_row.html" %}
+  {% empty %}
+    <div class="empty">
+      <div class="art">✓</div>
+      <h2>{% if view == 'completed' %}Nothing completed yet{% else %}All clear{% endif %}</h2>
+      {% if view == 'due' %}<p>Nothing needs doing right now.</p>{% endif %}
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}

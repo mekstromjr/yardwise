@@ -151,3 +151,68 @@ def _apply_photo_and_location(plant: Plant, form: PlantForm, request):
         PlantLocation.objects.create(
             plant=plant, bed=bed, location_note=note, started_on=today_
         )
+
+
+@login_required
+def task_list(request):
+    view = request.GET.get("view", "due")
+    today_ = datetime.date.today()
+    base = TaskOccurrence.objects.filter(task__archived_at__isnull=True).select_related(
+        "task", "task__category"
+    )
+    if view == "completed":
+        occurrences = base.exclude(status=OccurrenceStatus.PENDING).order_by("-completed_on")[:100]
+    else:
+        pending = list(base.filter(status=OccurrenceStatus.PENDING))
+        if view == "due":
+            occurrences = [o for o in pending if o.is_overdue(today_) or o.is_due_now(today_)]
+        elif view == "upcoming":
+            occurrences = [
+                o for o in pending if not (o.is_overdue(today_) or o.is_due_now(today_))
+            ]
+        else:  # all
+            occurrences = pending
+    for occ in occurrences:
+        occ.describe_when = _describe_when(occ)
+    return render(request, "garden/tasks/list.html", {
+        "nav": "tasks", "view": view, "occurrences": occurrences, "today": today_,
+    })
+
+
+@login_required
+def task_form(request, pk=None):
+    from .forms import TaskForm
+    from .models import Task
+
+    task = get_object_or_404(Task, pk=pk) if pk else None
+    form = TaskForm(request.POST or None, instance=task)
+    if request.method == "POST" and form.is_valid():
+        is_new = task is None
+        task = form.save(commit=False)
+        if not task.created_by_id:
+            task.created_by = request.user
+        task.save()
+        form.save_m2m()
+        if is_new:
+            task.create_initial_occurrence()
+        return redirect("task-list")
+    return render(request, "garden/tasks/form.html", {"nav": "tasks", "form": form})
+
+
+@login_required
+def occurrence_action(request, pk, action):
+    """POST: complete or skip an occurrence. Returns the refreshed row (htmx)
+    or redirects back (no-JS fallback)."""
+    occ = get_object_or_404(
+        TaskOccurrence, pk=pk, status=OccurrenceStatus.PENDING
+    )
+    if request.method != "POST":
+        return redirect("task-list")
+    if action == "complete":
+        occ.complete(note=request.POST.get("note", ""))
+    else:
+        occ.skip()
+    if request.htmx:
+        occ.describe_when = _describe_when(occ)
+        return render(request, "garden/tasks/_row_done.html", {"occ": occ})
+    return redirect(request.POST.get("next") or "task-list")

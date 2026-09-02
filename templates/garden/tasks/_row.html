@@ -1,0 +1,24 @@
+<div class="row" id="occ-{{ occ.pk }}">
+  {% if occ.status == "pending" %}
+    <span class="dot {% if occ.is_overdue %}overdue{% elif occ.is_due_now %}due{% else %}soon{% endif %}"></span>
+  {% endif %}
+  <div class="grow">
+    <div class="title">{{ occ.task.title }}</div>
+    <div class="meta">
+      {{ occ.describe_when }}
+      {% if occ.task.category %} · {{ occ.task.category }}{% endif %}
+      {% if occ.status == "completed" %} · done {{ occ.completed_on|date:"M j" }}{% endif %}
+      {% if occ.status == "skipped" %} · skipped{% endif %}
+    </div>
+  </div>
+  {% if occ.status == "pending" %}
+    <form method="post" action="{% url 'occurrence-action' occ.pk 'complete' %}"
+          hx-post="{% url 'occurrence-action' occ.pk 'complete' %}"
+          hx-target="#occ-{{ occ.pk }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button class="btn" style="padding:7px 14px" type="submit">Done</button>
+    </form>
+  {% elif occ.status == "completed" %}
+    <span class="chip">✓</span>
+  {% endif %}
+</div>

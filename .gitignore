@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .env
+.dev-secret-key
 dev.sqlite3
 media/
 staticfiles/

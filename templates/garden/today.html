@@ -18,29 +18,14 @@
   {% if overdue %}
   <section class="card">
     <h2>Needs attention</h2>
-    {% for occ in overdue %}
-      <div class="row">
-        <span class="dot overdue"></span>
-        <div class="grow">
-          <div class="title">{{ occ.task.title }}</div>
-          <div class="meta">{{ occ.describe_when }}</div>
-        </div>
-        <span class="chip overdue">overdue</span>
-      </div>
-    {% endfor %}
+    {% for occ in overdue %}{% include "garden/tasks/_row.html" %}{% endfor %}
   </section>
   {% endif %}
 
   <section class="card">
     <h2>Due now</h2>
     {% for occ in due_now %}
-      <div class="row">
-        <span class="dot due"></span>
-        <div class="grow">
-          <div class="title">{{ occ.task.title }}</div>
-          <div class="meta">{{ occ.describe_when }}</div>
-        </div>
-      </div>
+      {% include "garden/tasks/_row.html" %}
     {% empty %}
       <p class="meta" style="color: var(--ink-soft)">Nothing due today. The garden is at rest.</p>
     {% endfor %}
@@ -49,15 +34,7 @@
   {% if coming_soon %}
   <section class="card">
     <h2>Coming soon</h2>
-    {% for occ in coming_soon %}
-      <div class="row">
-        <span class="dot soon"></span>
-        <div class="grow">
-          <div class="title">{{ occ.task.title }}</div>
-          <div class="meta">{{ occ.describe_when }}</div>
-        </div>
-      </div>
-    {% endfor %}
+    {% for occ in coming_soon %}{% include "garden/tasks/_row.html" %}{% endfor %}
   </section>
   {% endif %}
 

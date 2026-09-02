@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Bed, Plant
+from .models import Bed, Plant, ScheduleKind, Task
 
 
 class PlantForm(forms.ModelForm):
@@ -53,3 +53,46 @@ class PlantForm(forms.ModelForm):
         if name in groups:
             return [self[f] for f in groups[name]]
         raise AttributeError(name)
+
+
+class TaskForm(forms.ModelForm):
+    """Task creation/edit. The template shows only the timing fields relevant
+    to the chosen schedule kind; clean() enforces the same rule server-side
+    (mirroring the DB check constraint, but with friendly messages)."""
+
+    class Meta:
+        model = Task
+        fields = [
+            "title", "notes", "category", "priority",
+            "plants", "beds", "tag",
+            "schedule_kind", "due_on", "window",
+            "interval_count", "interval_unit", "interval_anchor",
+        ]
+        widgets = {
+            "due_on": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+            "plants": forms.SelectMultiple(attrs={"size": 5}),
+            "beds": forms.SelectMultiple(attrs={"size": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["plants"].queryset = Plant.objects.filter(status="active")
+        self.fields["beds"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        self.fields["plants"].required = False
+        self.fields["beds"].required = False
+
+    def clean(self):
+        data = super().clean()
+        kind = data.get("schedule_kind")
+        if kind in (ScheduleKind.EXACT_ONCE, ScheduleKind.EXACT_YEARLY) and not data.get("due_on"):
+            self.add_error("due_on", "Pick the date this is due.")
+        window_kinds = (ScheduleKind.WINDOW_ONCE, ScheduleKind.WINDOW_YEARLY)
+        if kind in window_kinds and not data.get("window"):
+            self.add_error("window", "Pick the seasonal window.")
+        if kind == ScheduleKind.INTERVAL:
+            if not data.get("interval_count"):
+                self.add_error("interval_count", "How often? e.g. every 6 weeks.")
+            if not data.get("interval_unit"):
+                self.add_error("interval_unit", "Days, weeks, or months?")
+        return data

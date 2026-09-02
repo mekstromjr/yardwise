@@ -1,15 +1,73 @@
-# yardwise CI
-# Placeholder pipeline: exists primarily to disable the instance-inherited
-# Auto DevOps pipeline (which fails on repos without its expected structure).
-# Real stages (lint -> test -> build -> release) land with the Django scaffold.
+# YardWise CI
+#
+# Stages:
+#   - test:  Secret Detection + ruff lint + pytest (sqlite - no DB service needed)
+#   - build: Kaniko -> registry.meklab.net/meklab/yardwise
+#
+# Image tags produced:
+#   - :<short-sha>  always (main + tags)
+#   - :latest       on main
+#   - :<tag>        on semver git tag push (vX.Y.Z) - what Flux image automation
+#                   watches and promotes into meklab/k8s. Releasing = pushing a tag.
 
 stages:
-  - check
+  - test
+  - build
 
-check:
-  stage: check
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  REGISTRY: registry.meklab.net
+  IMAGE_PATH: $CI_PROJECT_PATH
+
+secret_detection:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH || $CI_COMMIT_TAG
+      when: always
+
+test:
+  stage: test
+  image: ghcr.io/astral-sh/uv:0.7.17-python3.12-bookworm-slim
   tags:
     - meklab-k3s
-  image: alpine:3.20
   script:
-    - echo "yardwise bootstrap pipeline ok"
+    - uv sync --frozen
+    - uv run --no-sync ruff check .
+    - uv run --no-sync pytest -q
+  rules:
+    - if: $CI_COMMIT_BRANCH || $CI_COMMIT_TAG
+      when: always
+
+build:image:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  tags:
+    - meklab-k3s
+  script:
+    - |
+      DEST_ARGS="--destination=${REGISTRY}/${IMAGE_PATH}:${CI_COMMIT_SHORT_SHA}"
+      if [ "$CI_COMMIT_BRANCH" = "main" ]; then
+        DEST_ARGS="$DEST_ARGS --destination=${REGISTRY}/${IMAGE_PATH}:latest"
+      fi
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        DEST_ARGS="$DEST_ARGS --destination=${REGISTRY}/${IMAGE_PATH}:${CI_COMMIT_TAG}"
+      fi
+    - |
+      /kaniko/executor \
+        --context "${CI_PROJECT_DIR}" \
+        --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
+        --cache=true \
+        --cache-repo="${REGISTRY}/${IMAGE_PATH}/cache" \
+        --snapshot-mode=redo \
+        --use-new-run \
+        $DEST_ARGS
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/
+      when: always
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: always
+    - when: never

@@ -1,0 +1,39 @@
+[project]
+name = "yardwise"
+version = "0.1.0"
+description = "PNW Home YardWise - self-hosted yard and plant management"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<5.3",
+    "psycopg[binary]>=3.2",
+    "gunicorn>=23.0",
+    "whitenoise>=6.8",
+    "mozilla-django-oidc>=4.0",
+    "pillow>=11.0",
+    "django-htmx>=1.21",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-django>=4.9.0",
+    "ruff>=0.9.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+testpaths = ["garden/tests"]
+# Tests run on sqlite (see settings.py DATABASE_ENGINE default) so they need
+# no running database - important for the handover: `uv run pytest` must work
+# on a fresh laptop with zero setup.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Django migrations are generated code.
+"garden/migrations/*" = ["E501"]

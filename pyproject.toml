@@ -8,7 +8,6 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "gunicorn>=23.0",
     "whitenoise>=6.8",
-    "mozilla-django-oidc>=4.0",
     "pillow>=11.0",
     "django-htmx>=1.21",
 ]

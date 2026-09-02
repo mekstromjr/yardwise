@@ -108,26 +108,20 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
 ]
 
-# Authentik OIDC SSO (issue #3). Enabled only when a client id is configured,
-# so local dev and tests fall back to Django's session login / admin.
-OIDC_ENABLED = bool(os.environ.get("OIDC_RP_CLIENT_ID"))
-if OIDC_ENABLED:
-    INSTALLED_APPS.append("mozilla_django_oidc")
-    AUTHENTICATION_BACKENDS = [
-        "mozilla_django_oidc.auth.OIDCAuthenticationBackend",
-        "django.contrib.auth.backends.ModelBackend",
-    ]
-    OIDC_RP_CLIENT_ID = os.environ["OIDC_RP_CLIENT_ID"]
-    OIDC_RP_CLIENT_SECRET = os.environ.get("OIDC_RP_CLIENT_SECRET", "")
-    OIDC_RP_SIGN_ALGO = "RS256"
-    _oidc_base = os.environ.get("OIDC_BASE_URL", "").rstrip("/")
-    OIDC_OP_AUTHORIZATION_ENDPOINT = f"{_oidc_base}/authorize/"
-    OIDC_OP_TOKEN_ENDPOINT = f"{_oidc_base}/token/"
-    OIDC_OP_USER_ENDPOINT = f"{_oidc_base}/userinfo/"
-    OIDC_OP_JWKS_ENDPOINT = f"{_oidc_base}/jwks/"
-    LOGIN_URL = "oidc_authentication_init"
-else:
-    LOGIN_URL = "/admin/login/"
+# Authentik SSO via ingress forward-auth (issue #3), matching the vinyl
+# pattern: Traefik sends every request through Authentik, which injects
+# X-authentik-username. AUTH_TRUST_PROXY_HEADER must be set ONLY where that
+# ingress is the sole route to the app (the cluster) - trusting the header on
+# a directly reachable server would let anyone impersonate anyone. Local dev
+# and tests leave it unset and use Django's session login / admin.
+AUTH_TRUST_PROXY_HEADER = env_bool("AUTH_TRUST_PROXY_HEADER", False)
+if AUTH_TRUST_PROXY_HEADER:
+    MIDDLEWARE.insert(
+        MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware") + 1,
+        "config.auth.AuthentikRemoteUserMiddleware",
+    )
+    AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.RemoteUserBackend"]
+LOGIN_URL = "/admin/login/"
 
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"

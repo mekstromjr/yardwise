@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Settings - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Your vocabulary</div>
+  <h1>Settings</h1>
+  <div class="sub">Rename anything; archive what you don't use. Built-in entries can be renamed but not removed.</div>
+</header>
+
+<div class="card">
+  <h2>Garden beds</h2>
+  <p><a class="btn secondary" href="{% url 'bed-list' %}">Manage beds &amp; areas</a></p>
+</div>
+
+<details class="section">
+  <summary>Season windows</summary>
+  <div class="inner">
+    <p class="help" style="margin-top:0">"Late winter" means what you say it means - every task
+      and care window using a season follows these dates.</p>
+    {% for w in windows %}
+      <form method="post" action="{% url 'settings-window' %}" class="vocab-row">
+        {% csrf_token %}
+        <input type="hidden" name="pk" value="{{ w.pk }}">
+        <input type="text" name="label" value="{{ w.label }}" aria-label="Window name">
+        <span class="range">
+          <select name="start_month" aria-label="Start month">{% for m, name in months %}<option value="{{ m }}" {% if w.start_month == m %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+          <input type="number" name="start_day" value="{{ w.start_day }}" min="1" max="31" aria-label="Start day">
+          <span>to</span>
+          <select name="end_month" aria-label="End month">{% for m, name in months %}<option value="{{ m }}" {% if w.end_month == m %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+          <input type="number" name="end_day" value="{{ w.end_day }}" min="1" max="31" aria-label="End day">
+        </span>
+        <button class="btn small" type="submit">Save</button>
+      </form>
+    {% endfor %}
+  </div>
+</details>
+
+{% for section in sections %}
+<details class="section">
+  <summary>{{ section.plural }}</summary>
+  <div class="inner">
+    {% for item in section.items %}
+      <form method="post" action="{% url 'settings-vocab' section.slug %}" class="vocab-row">
+        {% csrf_token %}
+        <input type="hidden" name="pk" value="{{ item.pk }}">
+        <input type="text" name="name" value="{{ item.name }}" aria-label="Name">
+        <button class="btn small" name="action" value="rename" type="submit">Save</button>
+        {% if not item.is_builtin %}
+          <button class="btn small secondary" name="action" value="archive" type="submit"
+                  title="Archive (history keeps it)">Archive</button>
+        {% endif %}
+      </form>
+    {% endfor %}
+    <form method="post" action="{% url 'settings-vocab' section.slug %}" class="vocab-row">
+      {% csrf_token %}
+      <input type="text" name="name" placeholder="Add a {{ section.label }}...">
+      <button class="btn small" name="action" value="add" type="submit">Add</button>
+    </form>
+  </div>
+</details>
+{% endfor %}
+{% endblock %}

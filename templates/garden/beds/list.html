@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Beds & areas - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">The yard</div>
+  <h1>Beds &amp; areas</h1>
+  <div class="sub">Each bed keeps its permanent ID forever - rename freely, history follows.</div>
+</header>
+
+<p><a class="btn" href="{% url 'bed-add' %}">Add a bed</a></p>
+
+<section class="card">
+  {% for bed in beds %}
+    <a class="row" href="{% url 'bed-edit' bed.pk %}">
+      <div class="grow">
+        <div class="title">{{ bed.name }}</div>
+        <div class="meta">{{ bed.code }}{% if bed.short_code %} · {{ bed.short_code }}{% endif %}{% if bed.bed_type %} · {{ bed.bed_type }}{% endif %}</div>
+      </div>
+      <span class="chip">{{ bed.plant_count }} plant{{ bed.plant_count|pluralize }}</span>
+    </a>
+  {% empty %}
+    <div class="empty">
+      <div class="art">🪴</div>
+      <h2>No beds yet</h2>
+      <p>Add your first yard area - plants can be assigned to it as you go.</p>
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -200,6 +200,20 @@ details.section > summary::after { content: "+"; float: right; color: var(--moss
 details.section[open] > summary::after { content: "\2013"; }
 details.section .inner { padding: 2px 16px 14px; }
 
+/* --- settings vocab rows -------------------------------------------------- */
+.vocab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.vocab-row input[type="text"] { flex: 1; min-width: 140px; }
+.vocab-row .range { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vocab-row .range input[type="number"] { width: 64px; }
+.vocab-row .range select { width: auto; }
+.btn.small { padding: 8px 13px; font-size: 13.5px; }
+
 /* --- search bar --------------------------------------------------------- */
 .searchbar { position: relative; margin-bottom: 14px; }
 .searchbar input { padding-left: 38px; }

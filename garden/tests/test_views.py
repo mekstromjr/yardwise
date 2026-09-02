@@ -289,3 +289,69 @@ def test_logout_redirect_targets_outpost_when_proxied(settings):
     import config.settings as s
 
     assert "/outpost.goauthentik.io/sign_out" in inspect.getsource(s)
+
+
+# --- Settings & beds (#10) ---------------------------------------------------
+
+
+def test_settings_page_lists_vocab_and_windows(user_client):
+    r = user_client.get(reverse("settings"))
+    assert r.status_code == 200
+    assert b"Late winter" in r.content and b"Pruned" in r.content
+
+
+def test_vocab_rename_and_builtin_protection(user_client):
+    from garden.models import ActivityType
+
+    pruned = ActivityType.objects.get(name="Pruned")
+    user_client.post(reverse("settings-vocab", args=["activity-types"]),
+                     {"action": "rename", "pk": pruned.pk, "name": "Pruned back"})
+    pruned.refresh_from_db()
+    assert pruned.name == "Pruned back"
+    user_client.post(reverse("settings-vocab", args=["activity-types"]),
+                     {"action": "archive", "pk": pruned.pk})
+    pruned.refresh_from_db()
+    assert pruned.archived_at is None  # builtin: archive refused
+
+
+def test_vocab_add_and_archive_custom(user_client):
+    from garden.models import Tag
+
+    user_client.post(reverse("settings-vocab", args=["tags"]), {"action": "add", "name": "roses"})
+    tag = Tag.objects.get(name="roses")
+    user_client.post(reverse("settings-vocab", args=["tags"]),
+                     {"action": "archive", "pk": tag.pk})
+    tag.refresh_from_db()
+    assert tag.archived_at is not None
+
+
+def test_season_window_edit_moves_every_consumer(user_client):
+    from garden.models import SeasonWindow
+
+    w = SeasonWindow.objects.get(label="Late winter")
+    user_client.post(reverse("settings-window"), {
+        "pk": w.pk, "label": "Late winter", "start_month": 2, "start_day": 10,
+        "end_month": 3, "end_day": 5,
+    })
+    w.refresh_from_db()
+    assert (w.start_month, w.start_day, w.end_month, w.end_day) == (2, 10, 3, 5)
+
+
+def test_bed_duplicate_name_rejected_with_prompt(user_client):
+    Bed.objects.create(name="Front Bed")
+    r = user_client.post(reverse("bed-add"), {"name": "front bed"})
+    assert r.status_code == 200
+    assert b"pick something distinguishing" in r.content
+
+
+def test_bed_archive_refused_while_plants_present(user_client):
+    bed = Bed.objects.create(name="Front Bed")
+    plant = Plant.objects.create(common_name="Rose")
+    plant.locations.create(bed=bed, is_current=True)
+    user_client.post(reverse("bed-archive", args=[bed.pk]))
+    bed.refresh_from_db()
+    assert bed.archived_at is None
+    plant.locations.update(is_current=False)
+    user_client.post(reverse("bed-archive", args=[bed.pk]))
+    bed.refresh_from_db()
+    assert bed.archived_at is not None

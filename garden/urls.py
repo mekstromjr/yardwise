@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_settings
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -22,4 +22,11 @@ urlpatterns = [
         views.occurrence_action,
         name="occurrence-action",
     ),
+    path("settings/", views_settings.settings_home, name="settings"),
+    path("settings/vocab/<slug:slug>/", views_settings.vocab_action, name="settings-vocab"),
+    path("settings/windows/", views_settings.window_action, name="settings-window"),
+    path("beds/", views_settings.bed_list, name="bed-list"),
+    path("beds/add/", views_settings.bed_form, name="bed-add"),
+    path("beds/<int:pk>/", views_settings.bed_form, name="bed-edit"),
+    path("beds/<int:pk>/archive/", views_settings.bed_archive, name="bed-archive"),
 ]

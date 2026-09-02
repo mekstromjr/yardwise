@@ -177,3 +177,32 @@ class PhotoForm(forms.ModelForm):
             "taken_on": forms.DateInput(attrs={"type": "date"}),
             "categories": forms.CheckboxSelectMultiple,
         }
+
+
+class BedForm(forms.ModelForm):
+    class Meta:
+        from .models import Bed
+
+        model = Bed
+        fields = ["name", "short_code", "bed_type", "sun_notes", "soil_notes",
+                  "irrigation_notes", "notes"]
+        widgets = {
+            "sun_notes": forms.Textarea(attrs={"rows": 2}),
+            "soil_notes": forms.Textarea(attrs={"rows": 2}),
+            "irrigation_notes": forms.Textarea(attrs={"rows": 2}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def clean_name(self):
+        from .models import Bed
+
+        name = self.cleaned_data["name"].strip()
+        clash = Bed.objects.filter(archived_at__isnull=True, name__iexact=name)
+        if self.instance.pk:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            # PDD 4.3: prompt for a distinguishing name, never silent ambiguity
+            raise forms.ValidationError(
+                "There's already a bed with this name - pick something distinguishing."
+            )
+        return name

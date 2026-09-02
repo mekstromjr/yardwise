@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{% if bed %}{{ bed.name }}{% else %}Add bed{% endif %} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{% if bed %}{{ bed.code }}{% else %}New bed{% endif %}</div>
+  <h1>{% if bed %}{{ bed.name }}{% else %}Add a bed{% endif %}</h1>
+</header>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card">
+    {% for field in form %}
+      <div class="field">
+        {{ field.label_tag }}{{ field }}
+        {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <p style="display:flex; gap:10px">
+    <button class="btn" type="submit">Save bed</button>
+    <a class="btn secondary" href="{% url 'bed-list' %}">Cancel</a>
+  </p>
+</form>
+
+{% if bed %}
+<section class="card">
+  <h2>Growing here now</h2>
+  {% for loc in plants %}
+    <a class="row" href="{% url 'plant-detail' loc.plant.pk %}">
+      <div class="grow"><div class="title">{{ loc.plant }}</div>
+        {% if loc.location_note %}<div class="meta">{{ loc.location_note }}</div>{% endif %}</div>
+    </a>
+  {% empty %}
+    <p class="meta" style="color:var(--ink-soft)">Nothing recorded in this bed yet.</p>
+  {% endfor %}
+</section>
+
+{% if not plants %}
+<form method="post" action="{% url 'bed-archive' bed.pk %}"
+      onsubmit="return confirm('Archive {{ bed.name }}? Its history is kept.')">
+  {% csrf_token %}
+  <button class="btn warm" type="submit">Archive this bed</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

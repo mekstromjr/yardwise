@@ -26,7 +26,7 @@
       {% if entry.photos.all %}
         <div class="plant-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
           {% for photo in entry.photos.all %}
-            <img src="{{ photo.file.url }}" alt="{{ photo.caption }}" loading="lazy"
+            <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy"
                  style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
           {% endfor %}
         </div>

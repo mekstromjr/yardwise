@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Journal - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">The notebook</div>
+  <h1>Journal</h1>
+</header>
+
+<div class="quick-actions" style="margin-bottom:14px">
+  <div class="searchbar" style="flex:1; margin-bottom:0">
+    <span class="icon">⌕</span>
+    <input type="search" name="q" placeholder="Search entries..." value="{{ q }}"
+           hx-get="{% url 'journal-list' %}" hx-trigger="input changed delay:300ms, search"
+           hx-target="#journal-feed" hx-select="#journal-feed" hx-swap="outerHTML">
+  </div>
+  <a class="btn" href="{% url 'journal-add' %}">New entry</a>
+</div>
+
+<div id="journal-feed" class="stack">
+  {% for entry in entries %}
+    <article class="card">
+      <div class="meta" style="color:var(--ink-soft); font-size:13px">
+        {{ entry.occurred_at|date:"l, F j, Y · g:i a" }}
+      </div>
+      <p style="margin:8px 0; white-space:pre-line">{{ entry.text }}</p>
+      {% if entry.photos.all %}
+        <div class="plant-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
+          {% for photo in entry.photos.all %}
+            <img src="{{ photo.file.url }}" alt="{{ photo.caption }}" loading="lazy"
+                 style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if entry.plants.all or entry.tags.all %}
+        <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px">
+          {% for plant in entry.plants.all %}
+            <a class="chip" href="{% url 'plant-detail' plant.pk %}">{{ plant.common_name }}</a>
+          {% endfor %}
+          {% for tag in entry.tags.all %}<span class="chip harvest">{{ tag }}</span>{% endfor %}
+        </div>
+      {% endif %}
+    </article>
+  {% empty %}
+    <div class="empty card">
+      <div class="art">✎</div>
+      <h2>{% if q %}No matching entries{% else %}The notebook is blank{% endif %}</h2>
+      {% if not q %}<p><a class="btn" href="{% url 'journal-add' %}">Write the first entry</a></p>{% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

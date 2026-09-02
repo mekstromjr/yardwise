@@ -25,7 +25,7 @@
     <span class="glyph">+</span></a>
   <a href="{% url 'task-list' %}" class="{% if nav == 'tasks' %}active{% endif %}">
     <span class="glyph">✓</span>Tasks</a>
-  <a href="#" class="{% if nav == 'journal' %}active{% endif %}">
+  <a href="{% url 'journal-list' %}" class="{% if nav == 'journal' %}active{% endif %}">
     <span class="glyph">✎</span>Journal</a>
 </nav>
 </body>

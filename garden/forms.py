@@ -96,3 +96,84 @@ class TaskForm(forms.ModelForm):
             if not data.get("interval_unit"):
                 self.add_error("interval_unit", "Days, weeks, or months?")
         return data
+
+
+class MultiFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultiFileField(forms.FileField):
+    """Multiple-photo upload (Django's documented multi-file pattern)."""
+
+    widget = MultiFileInput
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, list | tuple):
+            return [single(d, initial) for d in data]
+        return [single(data, initial)] if data else []
+
+
+class ActivityForm(forms.ModelForm):
+    photos_upload = MultiFileField(required=False, label="Photos")
+
+    class Meta:
+        from .models import Activity
+
+        model = Activity
+        fields = ["activity_type", "performed_on", "note"]
+        widgets = {
+            "performed_on": forms.DateInput(attrs={"type": "date"}),
+            "note": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class HarvestForm(forms.ModelForm):
+    photos_upload = MultiFileField(required=False, label="Photos")
+
+    class Meta:
+        from .models import HarvestEvent
+
+        model = HarvestEvent
+        fields = ["harvested_on", "quantity", "unit", "count", "quality", "intended_use", "notes"]
+        widgets = {
+            "harvested_on": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+
+class JournalForm(forms.ModelForm):
+    photos_upload = MultiFileField(required=False, label="Photos")
+
+    class Meta:
+        from .models import JournalEntry
+
+        model = JournalEntry
+        fields = ["text", "plants", "beds", "tags"]
+        widgets = {
+            "text": forms.Textarea(
+                attrs={"rows": 5, "placeholder": "What's happening in the garden?"}
+            ),
+            "plants": forms.SelectMultiple(attrs={"size": 5}),
+            "beds": forms.SelectMultiple(attrs={"size": 4}),
+            "tags": forms.SelectMultiple(attrs={"size": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["plants"].queryset = Plant.objects.filter(status="active")
+        self.fields["beds"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        for name in ("plants", "beds", "tags"):
+            self.fields[name].required = False
+
+
+class PhotoForm(forms.ModelForm):
+    class Meta:
+        from .models import Photo
+
+        model = Photo
+        fields = ["file", "taken_on", "caption", "categories"]
+        widgets = {
+            "taken_on": forms.DateInput(attrs={"type": "date"}),
+            "categories": forms.CheckboxSelectMultiple,
+        }

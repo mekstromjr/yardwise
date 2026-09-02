@@ -154,3 +154,86 @@ def test_completed_occurrence_cannot_be_completed_again(user_client):
     occ.complete()
     r = user_client.post(reverse("occurrence-action", args=[occ.pk, "complete"]))
     assert r.status_code == 404  # pending-only lookup guards double completion
+
+
+# --- Activity / Harvest / Photo / Journal capture ----------------------------
+
+
+def _png():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), "green").save(buf, "PNG")
+    buf.seek(0)
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    return SimpleUploadedFile("leaf.png", buf.read(), "image/png")
+
+
+def test_record_activity_lands_in_history(user_client):
+    from garden.models import Activity, ActivityType
+
+    plant = Plant.objects.create(common_name="Pear")
+    r = user_client.post(reverse("activity-add", args=[plant.pk]), {
+        "activity_type": ActivityType.objects.get(name="Pruned").pk,
+        "performed_on": datetime.date.today(),
+        "note": "took out the crossing branch",
+    })
+    assert r.status_code == 302
+    assert Activity.objects.get().plant == plant
+    r = user_client.get(reverse("plant-detail", args=[plant.pk]))
+    assert b"Pruned" in r.content and b"crossing branch" in r.content
+
+
+def test_quick_harvest_and_season_total(user_client):
+    from garden.models import HarvestUnit
+
+    plant = Plant.objects.create(common_name="Blueberry", is_edible=True)
+    lbs = HarvestUnit.objects.get(name="pounds")
+    for qty in ("2.5", "1.5"):
+        r = user_client.post(reverse("harvest-add", args=[plant.pk]), {
+            "harvested_on": datetime.date.today(), "quantity": qty, "unit": lbs.pk,
+        })
+        assert r.status_code == 302
+    r = user_client.get(reverse("plant-detail", args=[plant.pk]))
+    assert b"4 pounds" in r.content  # computed season total, never stored
+
+
+def test_photo_upload_sets_primary_and_links(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+    r = user_client.post(reverse("photo-add", args=[plant.pk]),
+                         {"file": _png(), "caption": "first bloom"})
+    assert r.status_code == 302
+    plant.refresh_from_db()
+    assert plant.primary_photo is not None
+    assert plant.photos.count() == 1
+
+
+def test_journal_entry_with_photos_and_plant_link(user_client):
+    from garden.models import JournalEntry
+
+    plant = Plant.objects.create(common_name="Fig")
+    r = user_client.post(reverse("journal-add"), {
+        "text": "First fig of the year, warm off the tree.",
+        "plants": [plant.pk],
+        "photos_upload": _png(),
+    })
+    assert r.status_code == 302
+    entry = JournalEntry.objects.get()
+    assert entry.photos.count() == 1
+    assert list(entry.plants.all()) == [plant]
+    r = user_client.get(reverse("plant-detail", args=[plant.pk]))
+    assert b"First fig" in r.content  # journal shows on the plant profile
+
+
+def test_journal_search(user_client):
+    import django.utils.timezone as tz
+
+    from garden.models import JournalEntry
+
+    JournalEntry.objects.create(occurred_at=tz.now(), text="Aphids on the roses")
+    JournalEntry.objects.create(occurred_at=tz.now(), text="Planted garlic")
+    r = user_client.get(reverse("journal-list"), {"q": "aphid"})
+    assert b"Aphids" in r.content and b"garlic" not in r.content

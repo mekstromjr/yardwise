@@ -2,7 +2,7 @@
 {% block title %}{{ plant }} - YardWise{% endblock %}
 {% block content %}
 <header class="page-head">
-  <div class="kicker">{{ plant.plant_type|default:"Plant" }}</div>
+  <div class="kicker">{{ plant.plant_type|default:"Plant" }}{% if plant.is_edible %} · edible{% endif %}</div>
   <h1>{{ plant.common_name }}{% if plant.cultivar %} '{{ plant.cultivar }}'{% endif %}</h1>
   <div class="sub">
     {% if plant.botanical_name %}<em>{{ plant.botanical_name }}</em> · {% endif %}
@@ -14,15 +14,36 @@
 
 {% if plant.primary_photo %}
 <div class="card" style="padding:0; overflow:hidden">
-  <img src="{{ plant.primary_photo.file.url }}" alt="{{ plant }}" style="width:100%; display:block">
+  <img src="{{ plant.primary_photo.file.url }}" alt="{{ plant }}"
+       style="width:100%; max-height:340px; object-fit:cover; display:block">
 </div>
 {% endif %}
 
 <div class="quick-actions" style="margin-bottom:12px">
-  <a class="btn" href="#">Record activity</a>
-  <a class="btn secondary" href="#">Add photo</a>
+  <a class="btn" href="{% url 'activity-add' plant.pk %}">Record activity</a>
+  {% if plant.is_edible %}<a class="btn warm" href="{% url 'harvest-add' plant.pk %}">Record harvest</a>{% endif %}
+  <a class="btn secondary" href="{% url 'photo-add' plant.pk %}">Add photo</a>
   <a class="btn secondary" href="{% url 'plant-edit' plant.pk %}">Edit</a>
 </div>
+
+{% if season_total %}
+<section class="card">
+  <h2>{{ year }} harvest</h2>
+  <p style="margin:4px 0"><span class="chip harvest">{{ season_total }}</span></p>
+</section>
+{% endif %}
+
+{% if photos %}
+<section class="card">
+  <h2>Photos</h2>
+  <div class="plant-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
+    {% for photo in photos %}
+      <img src="{{ photo.file.url }}" alt="{{ photo.caption }}" loading="lazy" title="{{ photo.taken_on|default:'' }} {{ photo.caption }}"
+           style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <section class="card">
   <h2>History</h2>
@@ -38,4 +59,18 @@
     <p class="meta" style="color:var(--ink-soft)">No recorded history yet. It starts with the first activity.</p>
   {% endfor %}
 </section>
+
+{% if journal_entries %}
+<section class="card">
+  <h2>From the journal</h2>
+  {% for entry in journal_entries %}
+    <div class="row">
+      <div class="grow">
+        <div class="meta">{{ entry.occurred_at|date:"M j, Y" }}</div>
+        <div>{{ entry.text|truncatechars:160 }}</div>
+      </div>
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
 {% endblock %}

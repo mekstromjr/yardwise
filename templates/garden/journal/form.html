@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}New journal entry - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">New entry</div>
+  <h1>What's happening?</h1>
+</header>
+{% url 'journal-list' as cancel_url %}
+{% include "garden/_simple_form.html" with submit_label="Save entry" %}
+{% endblock %}

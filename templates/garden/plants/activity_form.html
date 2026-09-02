@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Record activity - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ plant }}</div>
+  <h1>Record activity</h1>
+  <div class="sub">What did you do? It goes straight into the plant's history.</div>
+</header>
+{% url 'plant-detail' plant.pk as cancel_url %}
+{% include "garden/_simple_form.html" with submit_label="Record it" %}
+{% endblock %}

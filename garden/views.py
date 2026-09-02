@@ -91,17 +91,43 @@ def plant_list(request):
 @login_required
 def plant_detail(request, pk):
     plant = get_object_or_404(Plant, pk=pk)
+    harvests = list(plant.harvests.select_related("unit")[:50])
     timeline = [
         {"label": str(a.activity_type), "note": a.note, "on": a.performed_on}
         for a in plant.activities.select_related("activity_type")[:50]
     ] + [
-        {"label": "Harvest", "note": h.notes, "on": h.harvested_on}
-        for h in plant.harvests.all()[:50]
+        {"label": "Harvest", "note": _harvest_line(h), "on": h.harvested_on}
+        for h in harvests
     ]
     timeline.sort(key=lambda item: item["on"], reverse=True)
+
+    year = datetime.date.today().year
+    totals = {}
+    for h in harvests:
+        if h.harvested_on.year == year and h.quantity and h.unit:
+            totals[h.unit.name] = totals.get(h.unit.name, 0) + h.quantity
+    season_total = ", ".join(f"{float(q):g} {u}" for u, q in totals.items())
+
     return render(request, "garden/plants/detail.html", {
-        "nav": "plants", "plant": plant, "timeline": timeline,
+        "nav": "plants",
+        "plant": plant,
+        "timeline": timeline,
+        "photos": plant.photos.all()[:24],
+        "journal_entries": plant.journal_entries.all()[:10],
+        "season_total": season_total,
+        "year": year,
     })
+
+
+def _harvest_line(h) -> str:
+    parts = []
+    if h.quantity and h.unit:
+        parts.append(f"{float(h.quantity):g} {h.unit.name}")
+    if h.quality:
+        parts.append(h.quality)
+    if h.notes:
+        parts.append(h.notes)
+    return " - ".join(parts)
 
 
 @login_required
@@ -216,3 +242,112 @@ def occurrence_action(request, pk, action):
         occ.describe_when = _describe_when(occ)
         return render(request, "garden/tasks/_row_done.html", {"occ": occ})
     return redirect(request.POST.get("next") or "task-list")
+
+
+def _save_photos(files, user, plant=None):
+    """Create Photo rows for uploads and link them where they belong."""
+    photos = []
+    for f in files:
+        photo = Photo.objects.create(file=f, uploaded_by=user)
+        if plant:
+            plant.photos.add(photo)
+            if not plant.primary_photo_id:
+                plant.primary_photo = photo
+                plant.save(update_fields=["primary_photo"])
+        photos.append(photo)
+    return photos
+
+
+@login_required
+def activity_add(request, pk):
+    from .forms import ActivityForm
+
+    plant = get_object_or_404(Plant, pk=pk)
+    form = ActivityForm(request.POST or None, request.FILES or None,
+                        initial={"performed_on": datetime.date.today()})
+    if request.method == "POST" and form.is_valid():
+        activity = form.save(commit=False)
+        activity.plant = plant
+        activity.created_by = request.user
+        activity.save()
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, plant):
+            activity.photos.add(photo)
+        return redirect("plant-detail", pk=plant.pk)
+    return render(request, "garden/plants/activity_form.html",
+                  {"nav": "plants", "plant": plant, "form": form})
+
+
+@login_required
+def harvest_add(request, pk):
+    from .forms import HarvestForm
+
+    plant = get_object_or_404(Plant, pk=pk)
+    form = HarvestForm(request.POST or None, request.FILES or None,
+                       initial={"harvested_on": datetime.date.today()})
+    if request.method == "POST" and form.is_valid():
+        harvest = form.save(commit=False)
+        harvest.plant = plant
+        harvest.created_by = request.user
+        harvest.save()
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, plant):
+            harvest.photos.add(photo)
+        return redirect("plant-detail", pk=plant.pk)
+    return render(request, "garden/plants/harvest_form.html",
+                  {"nav": "plants", "plant": plant, "form": form})
+
+
+@login_required
+def photo_add(request, pk):
+    from .forms import PhotoForm
+
+    plant = get_object_or_404(Plant, pk=pk)
+    form = PhotoForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        photo = form.save(commit=False)
+        photo.uploaded_by = request.user
+        photo.save()
+        form.save_m2m()
+        plant.photos.add(photo)
+        if not plant.primary_photo_id:
+            plant.primary_photo = photo
+            plant.save(update_fields=["primary_photo"])
+        return redirect("plant-detail", pk=plant.pk)
+    return render(request, "garden/plants/photo_form.html",
+                  {"nav": "plants", "plant": plant, "form": form})
+
+
+@login_required
+def journal_list(request):
+    from .models import JournalEntry
+
+    entries = (
+        JournalEntry.objects.prefetch_related("photos", "plants", "tags")
+        .select_related("created_by")
+    )
+    q = request.GET.get("q", "").strip()
+    if q:
+        entries = entries.filter(
+            Q(text__icontains=q) | Q(plants__common_name__icontains=q)
+            | Q(tags__name__icontains=q)
+        ).distinct()
+    return render(request, "garden/journal/list.html",
+                  {"nav": "journal", "entries": entries[:100], "q": q})
+
+
+@login_required
+def journal_add(request):
+    import django.utils.timezone as tz
+
+    from .forms import JournalForm
+
+    form = JournalForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        entry = form.save(commit=False)
+        entry.occurred_at = tz.now()
+        entry.created_by = request.user
+        entry.save()
+        form.save_m2m()
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+            entry.photos.add(photo)
+        return redirect("journal-list")
+    return render(request, "garden/journal/form.html", {"nav": "journal", "form": form})

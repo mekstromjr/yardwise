@@ -202,3 +202,50 @@ def test_plant_saves_with_only_a_name():
 def test_watch_is_a_reason_not_a_flag():
     p = Plant.objects.create(common_name="Blueberry", watch_reason="Newly planted")
     assert p.is_watched
+
+
+# --- Photo derivatives & EXIF (#11) ------------------------------------------
+
+
+def _upload(name="big.jpg", size=(2400, 1600), exif_date=None):
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    img = Image.new("RGB", size, "green")
+    buf = io.BytesIO()
+    exif = None
+    if exif_date:
+        exif = img.getexif()
+        exif[306] = exif_date  # DateTime
+    img.save(buf, "JPEG", exif=exif.tobytes() if exif else b"")
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), "image/jpeg")
+
+
+def test_photo_generates_web_and_thumb_derivatives():
+    from PIL import Image
+
+    p = Photo(file=_upload())
+    p.save()
+    assert p.file_web and p.file_thumb
+    with p.file_web.open("rb") as fh:
+        assert max(Image.open(fh).size) <= 1600
+    with p.file_thumb.open("rb") as fh:
+        assert max(Image.open(fh).size) <= 400
+    assert p.web_url and p.thumb_url
+
+
+def test_photo_reads_exif_date_and_derives_season():
+    p = Photo(file=_upload(exif_date="2025:07:04 10:00:00"))
+    p.save()
+    assert str(p.taken_on) == "2025-07-04"
+    assert (p.season, p.year) == ("summer", 2025)
+
+
+def test_photo_without_exif_keeps_null_date():
+    p = Photo(file=_upload())
+    p.save()
+    assert p.taken_on is None
+    assert p.web_url  # fallback chain still yields a url

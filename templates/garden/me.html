@@ -9,13 +9,11 @@
 
 <section class="card">
   <h2>Settings</h2>
-  <p class="meta" style="color:var(--ink-soft)">
-    Garden vocabulary settings (yard areas, plant types, tags, task categories,
-    season definitions) are coming with the Beds &amp; Settings screen.
+  <p style="display:flex; gap:10px; flex-wrap:wrap">
+    <a class="btn" href="{% url 'settings' %}">Garden settings</a>
+    <a class="btn secondary" href="{% url 'bed-list' %}">Beds &amp; areas</a>
+    {% if user.is_staff %}<a class="btn secondary" href="/admin/">Admin console</a>{% endif %}
   </p>
-  {% if user.is_staff %}
-    <p><a class="btn secondary" href="/admin/">Open the admin console</a></p>
-  {% endif %}
 </section>
 
 <section class="card">

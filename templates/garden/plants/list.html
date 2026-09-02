@@ -23,7 +23,7 @@
         <a class="plant-card" href="{% url 'plant-detail' plant.pk %}">
           <div class="photo">
             {% if plant.primary_photo %}
-              <img src="{{ plant.primary_photo.file.url }}" alt="{{ plant }}" loading="lazy">
+              <img src="{{ plant.primary_photo.thumb_url }}" alt="{{ plant }}" loading="lazy">
             {% else %}
               <span class="leaf">☘</span>
             {% endif %}

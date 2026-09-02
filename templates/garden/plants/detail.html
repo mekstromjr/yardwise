@@ -14,7 +14,7 @@
 
 {% if plant.primary_photo %}
 <div class="card" style="padding:0; overflow:hidden">
-  <img src="{{ plant.primary_photo.file.url }}" alt="{{ plant }}"
+  <img src="{{ plant.primary_photo.web_url }}" alt="{{ plant }}"
        style="width:100%; max-height:340px; object-fit:cover; display:block">
 </div>
 {% endif %}
@@ -38,7 +38,7 @@
   <h2>Photos</h2>
   <div class="plant-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
     {% for photo in photos %}
-      <img src="{{ photo.file.url }}" alt="{{ photo.caption }}" loading="lazy" title="{{ photo.taken_on|default:'' }} {{ photo.caption }}"
+      <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy" title="{{ photo.taken_on|default:'' }} {{ photo.caption }}"
            style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
     {% endfor %}
   </div>

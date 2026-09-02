@@ -306,11 +306,19 @@ nav.primary a.user-entry .user-name {
     font-size: 15px;
   }
   nav.primary a.add-btn .glyph { margin-top: 0; width: 30px; height: 30px; font-size: 20px; }
-  /* pin the user identity to the bottom-left of the sidebar */
-  nav.primary a.user-entry {
+  /* Sidebar splits into places (top) and actions/identity (bottom): Add plant
+     sits above the user tile, so its accent color reads as "action", not as an
+     odd nav entry. Phone keeps the conventional centered raised button (DOM
+     order); flex `order` only reshapes the desktop column. */
+  nav.primary a.add-btn {
+    order: 8;
     margin-top: auto;
     border-top: 1px solid var(--line);
     padding-top: 14px;
+  }
+  nav.primary a.user-entry {
+    order: 9;
+    margin-top: 0;
   }
 }
 

@@ -84,3 +84,73 @@ def test_same_bed_note_edit_does_not_create_history(user_client):
     user_client.post(reverse("plant-edit", args=[plant.pk]), payload)
     assert plant.locations.count() == 1
     assert plant.locations.get().location_note == "north edge"
+
+
+# --- Tasks UI ----------------------------------------------------------------
+
+
+def test_task_list_views_split_due_and_upcoming(user_client):
+    today = datetime.date.today()
+    due = Task.objects.create(title="Water pots", schedule_kind=ScheduleKind.EXACT_ONCE,
+                              due_on=today)
+    due.create_initial_occurrence()
+    later = Task.objects.create(title="Plant bulbs", schedule_kind=ScheduleKind.EXACT_ONCE,
+                                due_on=today + datetime.timedelta(days=30))
+    later.create_initial_occurrence()
+    r = user_client.get(reverse("task-list"), {"view": "due"})
+    assert b"Water pots" in r.content and b"Plant bulbs" not in r.content
+    r = user_client.get(reverse("task-list"), {"view": "upcoming"})
+    assert b"Plant bulbs" in r.content and b"Water pots" not in r.content
+
+
+def test_task_create_form_generates_first_occurrence(user_client):
+    r = user_client.post(reverse("task-add"), {
+        "title": "Feed roses",
+        "schedule_kind": "interval",
+        "interval_count": 6, "interval_unit": "weeks",
+        "interval_anchor": "after_completion",
+        "priority": "medium",
+    })
+    assert r.status_code == 302
+    task = Task.objects.get(title="Feed roses")
+    assert task.occurrences.count() == 1
+
+
+def test_task_form_rejects_kind_without_its_fields(user_client):
+    r = user_client.post(reverse("task-add"), {
+        "title": "Prune", "schedule_kind": "exact_yearly", "priority": "medium",
+        "interval_anchor": "after_completion",
+    })
+    assert r.status_code == 200
+    assert b"Pick the date" in r.content
+    assert Task.objects.count() == 0
+
+
+def test_completing_occurrence_via_view_schedules_next(user_client):
+    t = Task.objects.create(title="Mow", schedule_kind=ScheduleKind.EXACT_YEARLY,
+                            due_on=datetime.date.today())
+    occ = t.create_initial_occurrence()
+    r = user_client.post(reverse("occurrence-action", args=[occ.pk, "complete"]))
+    assert r.status_code == 302  # no-JS fallback redirects
+    occ.refresh_from_db()
+    assert occ.status == "completed"
+    assert t.occurrences.filter(status="pending").count() == 1
+
+
+def test_completing_occurrence_htmx_returns_row(user_client):
+    t = Task.objects.create(title="Mow", schedule_kind=ScheduleKind.EXACT_ONCE,
+                            due_on=datetime.date.today())
+    occ = t.create_initial_occurrence()
+    r = user_client.post(reverse("occurrence-action", args=[occ.pk, "complete"]),
+                         HTTP_HX_REQUEST="true")
+    assert r.status_code == 200
+    assert b"Done today" in r.content
+
+
+def test_completed_occurrence_cannot_be_completed_again(user_client):
+    t = Task.objects.create(title="Mow", schedule_kind=ScheduleKind.EXACT_ONCE,
+                            due_on=datetime.date.today())
+    occ = t.create_initial_occurrence()
+    occ.complete()
+    r = user_client.post(reverse("occurrence-action", args=[occ.pk, "complete"]))
+    assert r.status_code == 404  # pending-only lookup guards double completion

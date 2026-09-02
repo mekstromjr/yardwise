@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Add task - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{% if form.instance.pk %}Editing{% else %}New task{% endif %}</div>
+  <h1>{% if form.instance.pk %}{{ form.instance.title }}{% else %}Add a task{% endif %}</h1>
+  <div class="sub">Gardening jobs have windows, not just dates - pick what fits.</div>
+</header>
+
+<form method="post">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="card errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="card">
+    <div class="field">{{ form.title.label_tag }}{{ form.title }}
+      {% if form.title.errors %}<div class="errors">{{ form.title.errors }}</div>{% endif %}</div>
+    <div class="field">{{ form.schedule_kind.label_tag }}{{ form.schedule_kind }}</div>
+
+    <div class="field" data-when="exact_once exact_yearly interval">
+      {{ form.due_on.label_tag }}{{ form.due_on }}
+      <div class="help" data-when="interval">Optional for repeating tasks: a fixed start date.</div>
+      {% if form.due_on.errors %}<div class="errors">{{ form.due_on.errors }}</div>{% endif %}
+    </div>
+    <div class="field" data-when="window_once window_yearly">
+      {{ form.window.label_tag }}{{ form.window }}
+      <div class="help">Windows are editable in Settings - "Late winter" means what you say it means.</div>
+      {% if form.window.errors %}<div class="errors">{{ form.window.errors }}</div>{% endif %}
+    </div>
+    <div class="field" data-when="interval">
+      <label>Repeat every</label>
+      <div style="display:flex; gap:8px">{{ form.interval_count }}{{ form.interval_unit }}</div>
+      {% if form.interval_count.errors %}<div class="errors">{{ form.interval_count.errors }}</div>{% endif %}
+      {% if form.interval_unit.errors %}<div class="errors">{{ form.interval_unit.errors }}</div>{% endif %}
+    </div>
+    <div class="field" data-when="interval">
+      {{ form.interval_anchor.label_tag }}{{ form.interval_anchor }}
+    </div>
+  </div>
+
+  <details class="section">
+    <summary>What it applies to</summary>
+    <div class="inner">
+      <div class="field">{{ form.plants.label_tag }}{{ form.plants }}</div>
+      <div class="field">{{ form.beds.label_tag }}{{ form.beds }}</div>
+      <div class="field">{{ form.tag.label_tag }}{{ form.tag }}
+        <div class="help">A tag applies the task to every plant carrying it.</div></div>
+    </div>
+  </details>
+
+  <details class="section">
+    <summary>Priority & notes</summary>
+    <div class="inner">
+      <div class="field">{{ form.priority.label_tag }}{{ form.priority }}</div>
+      <div class="field">{{ form.category.label_tag }}{{ form.category }}</div>
+      <div class="field">{{ form.notes.label_tag }}{{ form.notes }}</div>
+    </div>
+  </details>
+
+  <p style="display:flex; gap:10px">
+    <button class="btn" type="submit">Save task</button>
+    <a class="btn secondary" href="{% url 'task-list' %}">Cancel</a>
+  </p>
+</form>
+
+<script>
+/* Show only the timing fields for the chosen schedule kind. Server-side
+   validation enforces the same rule, so this is purely a kindness. */
+(function () {
+  const kindSel = document.querySelector('[name="schedule_kind"]');
+  function sync() {
+    document.querySelectorAll('[data-when]').forEach(el => {
+      el.hidden = !el.dataset.when.split(' ').includes(kindSel.value);
+    });
+  }
+  kindSel.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

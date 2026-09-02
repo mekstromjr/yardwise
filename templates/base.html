@@ -23,7 +23,7 @@
     <span class="glyph">✿</span>Plants</a>
   <a href="{% url 'plant-add' %}" class="add-btn" aria-label="Add">
     <span class="glyph">+</span></a>
-  <a href="#" class="{% if nav == 'tasks' %}active{% endif %}">
+  <a href="{% url 'task-list' %}" class="{% if nav == 'tasks' %}active{% endif %}">
     <span class="glyph">✓</span>Tasks</a>
   <a href="#" class="{% if nav == 'journal' %}active{% endif %}">
     <span class="glyph">✎</span>Journal</a>

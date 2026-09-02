@@ -16,11 +16,24 @@ def env_bool(name: str, default: bool = False) -> bool:
     return os.environ.get(name, str(default)).lower() in ("1", "true", "yes")
 
 
-# No hardcoded fallback key: unset means an ephemeral random key (fine for
-# tests/local hacking - sessions reset on restart). Production must set
-# DJANGO_SECRET_KEY (from Vault via ESO); if it goes missing there, sessions
-# breaking loudly on every restart beats running on a known key silently.
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or get_random_secret_key()
+# No hardcoded fallback key. Production sets DJANGO_SECRET_KEY (from Vault via
+# ESO); if it goes missing there, sessions breaking loudly on every restart
+# beats running on a known key silently. Unset locally, a generated key is
+# persisted to a gitignored file so runserver's auto-reload doesn't log you
+# out on every code change.
+def _local_dev_key() -> str:
+    keyfile = BASE_DIR / ".dev-secret-key"
+    try:
+        key = keyfile.read_text().strip()
+    except FileNotFoundError:
+        key = ""
+    if not key:
+        key = get_random_secret_key()
+        keyfile.write_text(key)
+    return key
+
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or _local_dev_key()
 DEBUG = env_bool("DJANGO_DEBUG", False)
 def env_list(name: str, default: str = "") -> list[str]:
     return [v for v in os.environ.get(name, default).split(",") if v]

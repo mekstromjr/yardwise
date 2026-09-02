@@ -19,10 +19,10 @@ Runs at `yardwise.meklab.net` (Tailscale-gated, Authentik SSO).
 
 ## Status
 
-Bootstrapping. Work is tracked in this project's
+MVP live at yardwise.meklab.net; releases deploy automatically from version
+tags (see HANDOVER.md). Work is tracked in this project's
 [issues](https://gitlab.meklab.net/meklab/yardwise/-/issues) and
 [milestones](https://gitlab.meklab.net/meklab/yardwise/-/milestones);
-the `yardwise: MVP` milestone is the current focus.
 
 ## Stack (decided, see docs/scope.md for rationale)
 

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ plant }} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ plant.plant_type|default:"Plant" }}</div>
+  <h1>{{ plant.common_name }}{% if plant.cultivar %} '{{ plant.cultivar }}'{% endif %}</h1>
+  <div class="sub">
+    {% if plant.botanical_name %}<em>{{ plant.botanical_name }}</em> · {% endif %}
+    {% with loc=plant.current_locations.first %}
+      {% if loc and loc.bed %}{{ loc.bed.name }}{% if loc.location_note %} — {{ loc.location_note }}{% endif %}{% else %}No location yet{% endif %}
+    {% endwith %}
+  </div>
+</header>
+
+{% if plant.primary_photo %}
+<div class="card" style="padding:0; overflow:hidden">
+  <img src="{{ plant.primary_photo.file.url }}" alt="{{ plant }}" style="width:100%; display:block">
+</div>
+{% endif %}
+
+<div class="quick-actions" style="margin-bottom:12px">
+  <a class="btn" href="#">Record activity</a>
+  <a class="btn secondary" href="#">Add photo</a>
+  <a class="btn secondary" href="{% url 'plant-edit' plant.pk %}">Edit</a>
+</div>
+
+<section class="card">
+  <h2>History</h2>
+  {% for item in timeline %}
+    <div class="row">
+      <div class="grow">
+        <div class="title">{{ item.label }}</div>
+        {% if item.note %}<div class="meta">{{ item.note|truncatechars:120 }}</div>{% endif %}
+      </div>
+      <div class="meta">{{ item.on|date:"M j, Y" }}</div>
+    </div>
+  {% empty %}
+    <p class="meta" style="color:var(--ink-soft)">No recorded history yet. It starts with the first activity.</p>
+  {% endfor %}
+</section>
+{% endblock %}

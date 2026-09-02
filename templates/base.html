@@ -1,0 +1,32 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}YardWise{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+{# Fonts degrade gracefully to the local serif/sans stacks when offline. #}
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Karla:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/yardwise.css' %}">
+<script src="{% static 'js/htmx.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<main class="wrap">
+  {% block content %}{% endblock %}
+</main>
+
+<nav class="primary">
+  <a href="{% url 'today' %}" class="{% if nav == 'today' %}active{% endif %}">
+    <span class="glyph">☀</span>Today</a>
+  <a href="{% url 'plant-list' %}" class="{% if nav == 'plants' %}active{% endif %}">
+    <span class="glyph">✿</span>Plants</a>
+  <a href="{% url 'plant-add' %}" class="add-btn" aria-label="Add">
+    <span class="glyph">+</span></a>
+  <a href="#" class="{% if nav == 'tasks' %}active{% endif %}">
+    <span class="glyph">✓</span>Tasks</a>
+  <a href="#" class="{% if nav == 'journal' %}active{% endif %}">
+    <span class="glyph">✎</span>Journal</a>
+</nav>
+</body>
+</html>

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} plant - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{% if form.instance.pk %}Editing{% else %}New plant{% endif %}</div>
+  <h1>{% if form.instance.pk %}{{ form.instance }}{% else %}Add a plant{% endif %}</h1>
+  <div class="sub">A name is enough - everything else can come later.</div>
+</header>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="card errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="card">
+    {% for field in form.basics %}
+      <div class="field">
+        {{ field.label_tag }}{{ field }}
+        {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <details class="section">
+    <summary>Details</summary>
+    <div class="inner">
+      {% for field in form.details %}
+        <div class="field">{{ field.label_tag }}{{ field }}
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </details>
+
+  <details class="section">
+    <summary>Growing conditions</summary>
+    <div class="inner">
+      {% for field in form.conditions %}
+        <div class="field">{{ field.label_tag }}{{ field }}
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </details>
+
+  <details class="section">
+    <summary>Seasons & care windows</summary>
+    <div class="inner">
+      {% for field in form.seasons %}
+        <div class="field">{{ field.label_tag }}{{ field }}
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </details>
+
+  <details class="section">
+    <summary>Safety & notes</summary>
+    <div class="inner">
+      {% for field in form.notes_fields %}
+        <div class="field">{{ field.label_tag }}{{ field }}
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </details>
+
+  <p style="display:flex; gap:10px">
+    <button class="btn" type="submit">Save plant</button>
+    <a class="btn secondary" href="{% url 'plant-list' %}">Cancel</a>
+  </p>
+</form>
+{% endblock %}

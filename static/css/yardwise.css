@@ -1,0 +1,289 @@
+/* YardWise - "field notebook" design system.
+   Hand-written on purpose: no build step, no framework. Tokens up top are the
+   whole theme - change a color here and the app follows. */
+
+:root {
+  /* paper & ink */
+  --paper: #f7f3e8;
+  --card: #fffdf6;
+  --ink: #2b3a2c;
+  --ink-soft: #5d6b58;
+  --line: #ddd6c2;
+  /* garden palette */
+  --fir: #3d5c40;
+  --fir-deep: #2e4630;
+  --moss: #7d9770;
+  --terracotta: #bc5f38;
+  --terracotta-soft: #f3e2d8;
+  --harvest: #a07417;
+  --harvest-soft: #f2e8cd;
+  --sky-soft: #e4ecdc;
+  /* type */
+  --display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --body: "Karla", "Avenir Next", "Segoe UI", sans-serif;
+  /* shape */
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 2px rgb(43 58 44 / 0.06), 0 4px 14px rgb(43 58 44 / 0.07);
+  --nav-h: 62px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  /* faint organic grain so the ground reads as paper, not screen */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.17 0 0 0 0 0.23 0 0 0 0 0.17 0 0 0 0.025 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+}
+
+h1, h2, h3 { font-family: var(--display); font-weight: 560; margin: 0; }
+a { color: var(--fir); }
+
+.wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+
+/* --- page header ----------------------------------------------------- */
+.page-head { padding: 22px 0 14px; }
+.page-head .kicker {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--terracotta);
+  font-weight: 700;
+}
+.page-head h1 { font-size: 30px; line-height: 1.15; }
+.page-head .sub { color: var(--ink-soft); margin-top: 4px; font-size: 15px; }
+
+/* --- cards ------------------------------------------------------------ */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.card h2 { font-size: 19px; margin-bottom: 8px; }
+
+.stack > * + * { margin-top: 10px; }
+
+/* --- task rows on Today ---------------------------------------------- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+.row:last-child { border-bottom: none; }
+.row .grow { flex: 1; min-width: 0; }
+.row .title { font-weight: 700; }
+.row .meta { font-size: 13.5px; color: var(--ink-soft); }
+
+.dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dot.overdue { background: var(--terracotta); }
+.dot.due { background: var(--fir); }
+.dot.soon { background: var(--moss); }
+
+.chip {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: var(--sky-soft);
+  color: var(--fir-deep);
+}
+.chip.overdue { background: var(--terracotta-soft); color: var(--terracotta); }
+.chip.harvest { background: var(--harvest-soft); color: var(--harvest); }
+
+/* --- buttons ---------------------------------------------------------- */
+.btn {
+  display: inline-block;
+  font: 700 15px var(--body);
+  color: #fff;
+  background: var(--fir);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px 18px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn:hover { background: var(--fir-deep); }
+.btn:active { transform: scale(0.98); }
+.btn.secondary { background: transparent; color: var(--fir); border: 1.5px solid var(--fir); }
+.btn.warm { background: var(--terracotta); }
+
+.quick-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* --- plant cards grid -------------------------------------------------- */
+.plant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.plant-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow);
+  transition: transform 0.12s ease;
+}
+.plant-card:active { transform: scale(0.97); }
+.plant-card .photo {
+  aspect-ratio: 1;
+  background: var(--sky-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.plant-card .photo img { width: 100%; height: 100%; object-fit: cover; }
+.plant-card .photo .leaf { font-size: 34px; opacity: 0.45; }
+.plant-card .info { padding: 9px 11px 11px; }
+.plant-card .name {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.plant-card .where { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+
+/* --- forms ------------------------------------------------------------- */
+label { display: block; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+input[type="text"], input[type="date"], input[type="number"], input[type="search"],
+select, textarea {
+  width: 100%;
+  font: 15px var(--body);
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--moss);
+  box-shadow: 0 0 0 3px rgb(125 151 112 / 0.2);
+}
+.field { margin-bottom: 14px; }
+.field .help { font-size: 13px; color: var(--ink-soft); margin-top: 3px; }
+.field .errors { color: var(--terracotta); font-size: 13.5px; font-weight: 700; }
+
+details.section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  margin-bottom: 10px;
+}
+details.section > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 13px 16px;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+}
+details.section > summary::after { content: "+"; float: right; color: var(--moss); }
+details.section[open] > summary::after { content: "\2013"; }
+details.section .inner { padding: 2px 16px 14px; }
+
+/* --- search bar --------------------------------------------------------- */
+.searchbar { position: relative; margin-bottom: 14px; }
+.searchbar input { padding-left: 38px; }
+.searchbar .icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--ink-soft);
+}
+
+/* --- empty states -------------------------------------------------------- */
+.empty {
+  text-align: center;
+  padding: 42px 20px;
+  color: var(--ink-soft);
+}
+.empty .art { font-size: 44px; margin-bottom: 8px; }
+.empty h2 { font-size: 21px; color: var(--ink); margin-bottom: 6px; }
+
+/* --- bottom nav (phone) / sidebar (wide) --------------------------------- */
+nav.primary {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  display: flex;
+  z-index: 20;
+}
+nav.primary a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+nav.primary a .glyph { font-size: 21px; line-height: 1; }
+nav.primary a.active { color: var(--fir); }
+nav.primary a.add-btn .glyph {
+  background: var(--terracotta);
+  color: #fff;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  margin-top: -18px;
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 900px) {
+  body { padding-bottom: 0; padding-left: 190px; }
+  .wrap { max-width: 760px; }
+  nav.primary {
+    top: 0; right: auto; bottom: 0;
+    width: 190px; height: auto;
+    flex-direction: column;
+    justify-content: flex-start;
+    border-top: none; border-right: 1px solid var(--line);
+    padding: 18px 0;
+  }
+  nav.primary a {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px 22px;
+    font-size: 15px;
+  }
+  nav.primary a.add-btn .glyph { margin-top: 0; width: 34px; height: 34px; font-size: 20px; }
+}
+
+/* --- gentle load-in -------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  main .card, main .plant-card, main .page-head {
+    animation: rise 0.35s ease both;
+  }
+  main .card:nth-child(2) { animation-delay: 0.05s; }
+  main .card:nth-child(3) { animation-delay: 0.1s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: none; }
+  }
+}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Today - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ season_label }} · {{ today|date:"l, F j" }}</div>
+  <h1>{{ greeting }}</h1>
+</header>
+
+{% if not has_any_plants %}
+  <div class="empty card">
+    <div class="art">🌱</div>
+    <h2>Your garden is ready to grow</h2>
+    <p>Start the notebook by adding the first plant.</p>
+    <p><a class="btn" href="{% url 'plant-add' %}">Add your first plant</a></p>
+  </div>
+{% else %}
+
+  {% if overdue %}
+  <section class="card">
+    <h2>Needs attention</h2>
+    {% for occ in overdue %}
+      <div class="row">
+        <span class="dot overdue"></span>
+        <div class="grow">
+          <div class="title">{{ occ.task.title }}</div>
+          <div class="meta">{{ occ.describe_when }}</div>
+        </div>
+        <span class="chip overdue">overdue</span>
+      </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Due now</h2>
+    {% for occ in due_now %}
+      <div class="row">
+        <span class="dot due"></span>
+        <div class="grow">
+          <div class="title">{{ occ.task.title }}</div>
+          <div class="meta">{{ occ.describe_when }}</div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="meta" style="color: var(--ink-soft)">Nothing due today. The garden is at rest.</p>
+    {% endfor %}
+  </section>
+
+  {% if coming_soon %}
+  <section class="card">
+    <h2>Coming soon</h2>
+    {% for occ in coming_soon %}
+      <div class="row">
+        <span class="dot soon"></span>
+        <div class="grow">
+          <div class="title">{{ occ.task.title }}</div>
+          <div class="meta">{{ occ.describe_when }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if watched %}
+  <section class="card">
+    <h2>Watching</h2>
+    {% for plant in watched %}
+      <a class="row" href="{% url 'plant-detail' plant.pk %}">
+        <div class="grow">
+          <div class="title">{{ plant }}</div>
+          <div class="meta">{{ plant.watch_reason }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+{% endif %}
+{% endblock %}

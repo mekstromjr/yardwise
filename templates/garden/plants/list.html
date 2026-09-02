@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Plants - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">The inventory</div>
+  <h1>Plants</h1>
+  <div class="sub">{{ total }} plant{{ total|pluralize }} in the notebook</div>
+</header>
+
+<div class="searchbar">
+  <span class="icon">⌕</span>
+  <input type="search" name="q" placeholder="Search by name, cultivar, tag..."
+         value="{{ q }}"
+         hx-get="{% url 'plant-list' %}" hx-trigger="input changed delay:300ms, search"
+         hx-target="#plant-results" hx-select="#plant-results" hx-swap="outerHTML"
+         hx-push-url="true">
+</div>
+
+<div id="plant-results">
+  {% if plants %}
+    <div class="plant-grid">
+      {% for plant in plants %}
+        <a class="plant-card" href="{% url 'plant-detail' plant.pk %}">
+          <div class="photo">
+            {% if plant.primary_photo %}
+              <img src="{{ plant.primary_photo.file.url }}" alt="{{ plant }}" loading="lazy">
+            {% else %}
+              <span class="leaf">☘</span>
+            {% endif %}
+          </div>
+          <div class="info">
+            <div class="name">{{ plant.common_name }}</div>
+            <div class="where">
+              {% with loc=plant.current_locations.first %}
+                {% if plant.cultivar %}'{{ plant.cultivar }}'{% elif loc and loc.bed %}{{ loc.bed.name }}{% endif %}
+              {% endwith %}
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% elif q %}
+    <div class="empty"><div class="art">⌕</div><h2>No matches</h2>
+      <p>Nothing in the notebook matches "{{ q }}".</p></div>
+  {% else %}
+    <div class="empty card"><div class="art">🌱</div>
+      <h2>Your garden is ready to grow</h2>
+      <p><a class="btn" href="{% url 'plant-add' %}">Add your first plant</a></p></div>
+  {% endif %}
+</div>
+{% endblock %}

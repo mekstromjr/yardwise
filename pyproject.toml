@@ -21,7 +21,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings"
+DJANGO_SETTINGS_MODULE = "config.settings_test"
 testpaths = ["garden/tests"]
 # Tests run on sqlite (see settings.py DATABASE_ENGINE default) so they need
 # no running database - important for the handover: `uv run pytest` must work

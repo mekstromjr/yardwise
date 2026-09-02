@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ user.get_full_name|default:user.username }} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Account</div>
+  <h1>{{ user.get_full_name|default:user.username }}</h1>
+  {% if user.email %}<div class="sub">{{ user.email }}</div>{% endif %}
+</header>
+
+<section class="card">
+  <h2>Settings</h2>
+  <p class="meta" style="color:var(--ink-soft)">
+    Garden vocabulary settings (yard areas, plant types, tags, task categories,
+    season definitions) are coming with the Beds &amp; Settings screen.
+  </p>
+  {% if user.is_staff %}
+    <p><a class="btn secondary" href="/admin/">Open the admin console</a></p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Session</h2>
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button class="btn warm" type="submit">Sign out</button>
+  </form>
+</section>
+{% endblock %}

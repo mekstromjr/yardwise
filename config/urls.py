@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.auth.views import LogoutView
 from django.http import HttpResponse
 from django.urls import include, path
 
@@ -16,6 +17,7 @@ def readyz(_request):
 
 urlpatterns = [
     path("", include("garden.urls")),
+    path("logout/", LogoutView.as_view(), name="logout"),
     path("admin/", admin.site.urls),
     path("healthz", healthz, name="healthz"),
     path("readyz", readyz, name="readyz"),

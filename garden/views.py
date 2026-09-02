@@ -351,3 +351,8 @@ def journal_add(request):
             entry.photos.add(photo)
         return redirect("journal-list")
     return render(request, "garden/journal/form.html", {"nav": "journal", "form": form})
+
+
+@login_required
+def me(request):
+    return render(request, "garden/me.html", {"nav": "me"})

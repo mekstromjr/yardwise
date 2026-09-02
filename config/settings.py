@@ -124,7 +124,12 @@ if AUTH_TRUST_PROXY_HEADER:
 LOGIN_URL = "/admin/login/"
 
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/"
+# Behind forward-auth, clearing only the Django session would re-authenticate
+# instantly from the proxy header; hand off to the outpost's sign-out, which
+# ends the Authentik session too.
+LOGOUT_REDIRECT_URL = (
+    "/outpost.goauthentik.io/sign_out" if AUTH_TRUST_PROXY_HEADER else "/"
+)
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.environ.get("TZ", "America/Los_Angeles")

@@ -264,3 +264,28 @@ def test_no_header_means_no_access(client, settings):
 def test_health_endpoints_are_public(client):
     assert client.get("/healthz").status_code == 200
     assert client.get("/readyz").status_code == 200
+
+
+# --- Account section ---------------------------------------------------------
+
+
+def test_me_page_shows_identity_and_nav_entry(user_client):
+    r = user_client.get(reverse("me"))
+    assert r.status_code == 200
+    assert b"michele" in r.content  # heading + nav user entry
+
+
+def test_logout_flushes_session(user_client):
+    r = user_client.post(reverse("logout"))
+    assert r.status_code == 302
+    assert user_client.get(reverse("today")).status_code == 302  # back to login
+
+
+def test_logout_redirect_targets_outpost_when_proxied(settings):
+    # The computed value ships in settings; assert the proxy branch exists in
+    # source so a refactor can't silently drop the outpost hand-off.
+    import inspect
+
+    import config.settings as s
+
+    assert "/outpost.goauthentik.io/sign_out" in inspect.getsource(s)

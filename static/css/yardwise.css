@@ -242,15 +242,34 @@ nav.primary a {
 }
 nav.primary a .glyph { font-size: 21px; line-height: 1; }
 nav.primary a.active { color: var(--fir); }
+nav.primary a.add-btn { color: var(--terracotta); }
 nav.primary a.add-btn .glyph {
   background: var(--terracotta);
   color: #fff;
-  width: 44px; height: 44px;
+  width: 34px; height: 34px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
-  margin-top: -18px;
+  font-size: 22px;
+  margin-top: -10px;
   box-shadow: var(--shadow);
+}
+/* On phones, "Add plant" won't fit under the button - shorten via ellipsis */
+nav.primary a.add-btn { white-space: nowrap; overflow: hidden; }
+
+/* user identity entry */
+nav.primary a.user-entry .glyph.avatar {
+  background: var(--fir);
+  color: #fff;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 14px var(--body);
+}
+nav.primary a.user-entry .user-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (min-width: 900px) {
@@ -272,7 +291,13 @@ nav.primary a.add-btn .glyph {
     padding: 12px 22px;
     font-size: 15px;
   }
-  nav.primary a.add-btn .glyph { margin-top: 0; width: 34px; height: 34px; font-size: 20px; }
+  nav.primary a.add-btn .glyph { margin-top: 0; width: 30px; height: 30px; font-size: 20px; }
+  /* pin the user identity to the bottom-left of the sidebar */
+  nav.primary a.user-entry {
+    margin-top: auto;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
 }
 
 /* --- gentle load-in -------------------------------------------------------- */

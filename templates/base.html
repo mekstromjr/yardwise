@@ -21,12 +21,17 @@
     <span class="glyph">☀</span>Today</a>
   <a href="{% url 'plant-list' %}" class="{% if nav == 'plants' %}active{% endif %}">
     <span class="glyph">✿</span>Plants</a>
-  <a href="{% url 'plant-add' %}" class="add-btn" aria-label="Add">
-    <span class="glyph">+</span></a>
+  <a href="{% url 'plant-add' %}" class="add-btn">
+    <span class="glyph">+</span>Add plant</a>
   <a href="{% url 'task-list' %}" class="{% if nav == 'tasks' %}active{% endif %}">
     <span class="glyph">✓</span>Tasks</a>
   <a href="{% url 'journal-list' %}" class="{% if nav == 'journal' %}active{% endif %}">
     <span class="glyph">✎</span>Journal</a>
+  {% if user.is_authenticated %}
+  <a href="{% url 'me' %}" class="user-entry {% if nav == 'me' %}active{% endif %}">
+    <span class="glyph avatar">{{ user.username|slice:":1"|upper }}</span>
+    <span class="user-name">{{ user.get_full_name|default:user.username }}</span></a>
+  {% endif %}
 </nav>
 </body>
 </html>

@@ -8,16 +8,20 @@ def healthz(_request):
     return HttpResponse("ok")
 
 
+def readyz(_request):
+    # Dependency-free by design (single replica): failing readiness on a slow
+    # database would remove the only endpoint and turn degraded into a 503.
+    return HttpResponse("ready")
+
+
 urlpatterns = [
     path("", include("garden.urls")),
     path("admin/", admin.site.urls),
     path("healthz", healthz, name="healthz"),
+    path("readyz", readyz, name="readyz"),
 ]
 
 if settings.DEBUG:
     from django.conf.urls.static import static
 
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-if settings.OIDC_ENABLED:
-    urlpatterns.append(path("oidc/", include("mozilla_django_oidc.urls")))

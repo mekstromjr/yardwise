@@ -237,3 +237,30 @@ def test_journal_search(user_client):
     JournalEntry.objects.create(occurred_at=tz.now(), text="Planted garlic")
     r = user_client.get(reverse("journal-list"), {"q": "aphid"})
     assert b"Aphids" in r.content and b"garlic" not in r.content
+
+
+# --- Proxy-header auth (forward-auth pattern) --------------------------------
+
+
+def test_proxy_header_auth_creates_user_and_authenticates(client, settings):
+    settings.MIDDLEWARE = settings.MIDDLEWARE + [
+        "config.auth.AuthentikRemoteUserMiddleware",
+    ]
+    settings.AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.RemoteUserBackend"]
+    r = client.get(reverse("today"), HTTP_X_AUTHENTIK_USERNAME="mekmom")
+    assert r.status_code == 200
+    assert User.objects.filter(username="mekmom").exists()
+
+
+def test_no_header_means_no_access(client, settings):
+    settings.MIDDLEWARE = settings.MIDDLEWARE + [
+        "config.auth.AuthentikRemoteUserMiddleware",
+    ]
+    settings.AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.RemoteUserBackend"]
+    r = client.get(reverse("today"))
+    assert r.status_code == 302  # bounced to login, not silently authenticated
+
+
+def test_health_endpoints_are_public(client):
+    assert client.get("/healthz").status_code == 200
+    assert client.get("/readyz").status_code == 200

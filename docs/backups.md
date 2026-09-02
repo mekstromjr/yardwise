@@ -27,8 +27,12 @@ Garage content replicates offsite per the meklab backup architecture.
 2. Restore only the yardwise database into the shared instance
    (`pg_dumpall` output contains every database - extract just ours):
    ```bash
+   # DANGER: the raw section starts with \connect yardwise, which would steer
+   # psql at the LIVE database - strip the redirection meta-commands (but keep
+   # the \. COPY terminators, which also start with a backslash):
    gunzip -c /tmp/dumpall-<ts>.sql.gz \
-     | sed -n '/^\\connect yardwise$/,/^\\connect /p' > /tmp/yardwise.sql
+     | sed -n '/^\\connect yardwise$/,/^\\connect /p' \
+     | sed '/^\\connect /d; /^\\restrict /d; /^\\unrestrict /d' > /tmp/yardwise.sql
    kubectl -n infra exec -i postgres-0 -- psql -U postgres -c \
      "DROP DATABASE IF EXISTS yardwise_restore; CREATE DATABASE yardwise_restore OWNER yardwise;"
    kubectl -n infra exec -i postgres-0 -- psql -U postgres -d yardwise_restore < /tmp/yardwise.sql
@@ -62,8 +66,10 @@ a scratch namespace instead with `--namespace-mappings prod:yardwise-restore`.
 
 ## Restore drills
 
-- DB dump path: verify with a manual job run + scratch-database restore once
-  the dump CronJob lands (meklab/k8s MR 291) - record the date here.
+- DB dump path: VERIFIED 2026-09-02 - manual CronJob run, dump landed in
+  Garage, fetched via the external endpoint, restored into a scratch database
+  with zero errors and correct row counts. (The drill also caught and fixed a
+  live-fire hazard in this document: the un-stripped \connect line.)
   Re-verify after major postgres upgrades.
 - Media PVC drill: scheduled as part of the Phase 5 dry run (#19), once real
   photos exist - an empty-volume restore proves nothing.

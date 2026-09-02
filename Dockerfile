@@ -14,6 +14,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY manage.py ./
 COPY config/ config/
 COPY garden/ garden/
+COPY templates/ templates/
+COPY static/ static/
 
 # collectstatic at build time; whitenoise serves from the baked-in manifest.
 RUN DJANGO_STATIC_ROOT=/app/staticfiles /app/.venv/bin/python manage.py collectstatic --noinput

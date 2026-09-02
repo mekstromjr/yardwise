@@ -1,0 +1,153 @@
+import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import PlantForm
+from .models import (
+    OccurrenceStatus,
+    Photo,
+    Plant,
+    PlantLocation,
+    PlantStatus,
+    TaskOccurrence,
+)
+
+COMING_SOON_DAYS = 14  # "this week & next" horizon for the Today screen
+
+
+def _describe_when(occ: TaskOccurrence) -> str:
+    if occ.due_on:
+        return occ.due_on.strftime("%b %-d")
+    return f"{occ.window_start:%b %-d} - {occ.window_end:%b %-d}"
+
+
+def _season_label(d: datetime.date) -> str:
+    part = ["Early", "Mid", "Late"][min((d.day - 1) // 10, 2)]
+    season = {12: "winter", 1: "winter", 2: "winter", 3: "spring", 4: "spring", 5: "spring",
+              6: "summer", 7: "summer", 8: "summer", 9: "fall", 10: "fall", 11: "fall"}[d.month]
+    return f"{part} {season}"
+
+
+@login_required
+def today(request):
+    today_ = datetime.date.today()
+    horizon = today_ + datetime.timedelta(days=COMING_SOON_DAYS)
+    pending = TaskOccurrence.objects.filter(
+        status=OccurrenceStatus.PENDING, task__archived_at__isnull=True
+    ).select_related("task")
+
+    overdue, due_now, coming_soon = [], [], []
+    for occ in pending:
+        occ.describe_when = _describe_when(occ)
+        if occ.is_overdue(today_):
+            overdue.append(occ)
+        elif occ.is_due_now(today_):
+            due_now.append(occ)
+        elif (occ.due_on or occ.window_start) <= horizon:
+            coming_soon.append(occ)
+
+    hour = datetime.datetime.now().hour
+    greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
+
+    return render(request, "garden/today.html", {
+        "nav": "today",
+        "today": today_,
+        "season_label": _season_label(today_),
+        "greeting": greeting,
+        "has_any_plants": Plant.objects.exists(),
+        "overdue": overdue,
+        "due_now": due_now,
+        "coming_soon": coming_soon,
+        "watched": Plant.objects.filter(status=PlantStatus.ACTIVE).exclude(watch_reason=""),
+    })
+
+
+@login_required
+def plant_list(request):
+    q = request.GET.get("q", "").strip()
+    plants = (
+        Plant.objects.filter(status=PlantStatus.ACTIVE)
+        .select_related("primary_photo")
+        .prefetch_related("locations__bed")
+    )
+    if q:
+        plants = plants.filter(
+            Q(common_name__icontains=q)
+            | Q(botanical_name__icontains=q)
+            | Q(cultivar__icontains=q)
+            | Q(tags__name__icontains=q)
+            | Q(locations__bed__name__icontains=q)
+        ).distinct()
+    return render(request, "garden/plants/list.html", {
+        "nav": "plants",
+        "plants": plants,
+        "q": q,
+        "total": Plant.objects.filter(status=PlantStatus.ACTIVE).count(),
+    })
+
+
+@login_required
+def plant_detail(request, pk):
+    plant = get_object_or_404(Plant, pk=pk)
+    timeline = [
+        {"label": str(a.activity_type), "note": a.note, "on": a.performed_on}
+        for a in plant.activities.select_related("activity_type")[:50]
+    ] + [
+        {"label": "Harvest", "note": h.notes, "on": h.harvested_on}
+        for h in plant.harvests.all()[:50]
+    ]
+    timeline.sort(key=lambda item: item["on"], reverse=True)
+    return render(request, "garden/plants/detail.html", {
+        "nav": "plants", "plant": plant, "timeline": timeline,
+    })
+
+
+@login_required
+def plant_form(request, pk=None):
+    plant = get_object_or_404(Plant, pk=pk) if pk else None
+    form = PlantForm(request.POST or None, request.FILES or None, instance=plant)
+    if request.method == "POST" and form.is_valid():
+        plant = form.save(commit=False)
+        if not plant.created_by_id:
+            plant.created_by = request.user
+        plant.save()
+        form.save_m2m()
+        _apply_photo_and_location(plant, form, request)
+        return redirect("plant-detail", pk=plant.pk)
+    if plant:  # pre-fill the location fields from the current placement
+        loc = plant.current_locations.first()
+        if loc:
+            form.fields["bed"].initial = loc.bed_id
+            form.fields["location_note"].initial = loc.location_note
+    return render(request, "garden/plants/form.html", {"nav": "plants", "form": form})
+
+
+def _apply_photo_and_location(plant: Plant, form: PlantForm, request):
+    upload = form.cleaned_data.get("photo")
+    if upload:
+        photo = Photo.objects.create(file=upload, uploaded_by=request.user)
+        plant.photos.add(photo)
+        if not plant.primary_photo:
+            plant.primary_photo = photo
+            plant.save(update_fields=["primary_photo"])
+
+    bed = form.cleaned_data.get("bed")
+    note = form.cleaned_data.get("location_note", "")
+    current = plant.current_locations.first()
+    if current and current.bed_id == (bed.pk if bed else None):
+        if current.location_note != note:  # same bed, refined note: edit in place
+            current.location_note = note
+            current.save(update_fields=["location_note"])
+    elif bed or note or current:
+        # Placement changed: close the old row, open a new current one -
+        # this IS the location-history rule, not an optimization.
+        today_ = datetime.date.today()
+        if current:
+            current.is_current = False
+            current.ended_on = today_
+            current.save(update_fields=["is_current", "ended_on"])
+        PlantLocation.objects.create(
+            plant=plant, bed=bed, location_note=note, started_on=today_
+        )

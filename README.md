@@ -31,3 +31,5 @@ tags (see HANDOVER.md). Work is tracked in this project's
 - Container image built by GitLab CI to `registry.meklab.net/meklab/yardwise`
 - Deployed by Flux from `meklab/k8s`; releases promoted automatically by
   Flux image automation watching semver tags
+
+Maintained with love by the Ekstrom family.

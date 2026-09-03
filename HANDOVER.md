@@ -1,134 +1,119 @@
-# YardWise: the maintainer's guide
+# YardWise maintainer manual
 
-For Mom and Dad. No jargon where plain words work; where a technical term is
-unavoidable, it's explained the first time. You'll usually be working with an
-AI assistant (Claude, ChatGPT) - this document is written so you can paste
-sections of it to your assistant as context.
+**For the owner:** this file is written for your AI assistant. Start a session
+(Claude, ChatGPT, etc.), attach or paste this whole file, and say what you
+want in plain words - "make the plant names bigger", "add a place to note
+which nursery a plant came from", "walk me through getting set up". The
+assistant does the technical work; you direct and approve. When it says
+something "needs Michael", that's real - text him.
 
-## The one-paragraph version
+You need two things, once, from Michael or Dad:
+1. **Tailscale** running on your computer (you already have it).
+2. An **access token** - a long password that lets your assistant work with
+   the YardWise code and nothing else. Keep it out of chat logs where you
+   can; if it ever leaks, tell Michael and he'll issue a new one (that is the
+   entire blast radius - the token can only touch this one project).
 
-YardWise is a website that runs on Michael's home servers. Its code lives in a
-GitLab "repository" (a shared folder with perfect memory of every change).
-When you change the code and publish a new version, robots take over: they
-build it, test it, and put it live at https://yardwise.meklab.net within about
-ten minutes. You never touch the servers. If something goes wrong, the old
-version keeps running and you tell Michael.
+Everything below is for the assistant.
 
-## What you need (one-time setup, Michael does this with you)
+---
 
-- A **GitLab account** at https://gitlab.meklab.net with access to the
-  `meklab/yardwise` project - this is where the code lives.
-- **Tailscale** on your computer (you already have it) - the site and GitLab
-  are only reachable through it.
-- A copy of the code on your computer ("clone"), which your AI assistant can
-  help you get:
+## Agent operating manual
+
+You are maintaining **YardWise**, a garden journal for the owner, running at
+https://yardwise.meklab.net on a private homelab. You have a **project access
+token** (env var `YARDWISE_TOKEN` below) scoped to the single GitLab project
+`meklab/yardwise` on `gitlab.meklab.net`. The user is non-technical: explain
+what you're doing in plain language, ask before anything irreversible, and
+never show her raw tokens or stack traces without a translation.
+
+### Environment facts
+
+- GitLab web + API: `https://gitlab.meklab.net` (project `meklab/yardwise`,
+  id 16) - reachable only over Tailscale, like the app itself.
+- Clone over HTTPS with the token (no SSH setup needed):
   ```bash
-  git clone ssh://git@gitlab-ssh.meklab.net:2222/meklab/yardwise.git
+  export YARDWISE_TOKEN=<the token the owner gives you>
+  git clone "https://token:${YARDWISE_TOKEN}@gitlab.meklab.net/meklab/yardwise.git"
   ```
-- To run the app on your own computer while trying changes: install `uv`
-  (ask your assistant: "install uv, the Python package manager"), then in the
-  yardwise folder run:
+- Stack: Django 5 + PostgreSQL, server-rendered templates + htmx, uv-managed
+  Python, pytest (sqlite - zero setup), hand-written CSS
+  (`static/css/yardwise.css`, design tokens at the top). No frontend build
+  step - keep it that way.
+- Reference docs in-repo: `docs/pdd.md` (the full product vision - deferred
+  features live here), `docs/scope.md`, `docs/design/schema.md`,
+  `docs/backups.md`.
+- Local dev server (its own sqlite database; cannot touch production):
   ```bash
-  uv sync
-  uv run python manage.py migrate
-  uv run python manage.py createsuperuser   # makes your local login
-  uv run python manage.py runserver
+  uv sync && uv run python manage.py migrate
+  uv run python manage.py createsuperuser   # local-only login
+  uv run python manage.py runserver         # http://localhost:8000
   ```
-  and open http://localhost:8000. This local copy has its own separate
-  database - nothing you do here touches the real site.
 
-## How to make a change
+### The release lifecycle (the only path to production)
 
-Tell your AI assistant what you want ("make the plant names bigger", "add a
-field for where I bought the plant"). Then this is the rhythm - your
-assistant can run these commands, you supervise:
-
-1. **Make a branch** (a scratch copy of the code):
+1. Branch from fresh main: `git checkout main && git pull && git checkout -b <topic>`
+2. Edit; run `uv run pytest` and `uv run ruff check .` - both must pass.
+3. Commit, push the branch, open an MR and wait for the pipeline:
+   ```bash
+   git push -u origin <topic>
+   curl -sf -H "PRIVATE-TOKEN: $YARDWISE_TOKEN" -X POST \
+     "https://gitlab.meklab.net/api/v4/projects/16/merge_requests" \
+     -d "source_branch=<topic>" -d "target_branch=main" -d "title=<title>"
+   # poll until the MR reports: pipeline success + detailed_merge_status=mergeable
+   curl -sf -H "PRIVATE-TOKEN: $YARDWISE_TOKEN" \
+     "https://gitlab.meklab.net/api/v4/projects/16/merge_requests/<iid>"
+   ```
+4. Merge (allowed when green): `PUT .../merge_requests/<iid>/merge`
+5. Release = a version tag on main. Look at existing tags, bump the patch:
    ```bash
    git checkout main && git pull
-   git checkout -b my-change
+   git tag v0.2.7 && git push origin v0.2.7
    ```
-2. **Let the assistant edit the code.** Check the result on your local
-   server (step above). The tests must pass:
-   ```bash
-   uv run pytest
-   ```
-3. **Publish the branch and open a "merge request"** (a proposal to adopt
-   your change):
-   ```bash
-   git add -A && git commit -m "describe the change"
-   git push -u origin my-change
-   ```
-   Then open the link GitLab prints, click through to create the merge
-   request, wait for the green pipeline (the robots running the tests), and
-   press **Merge**.
-4. **Release it.** Merging updates the code but does not change the live
-   site. To release, publish a version tag - bump the last number:
-   ```bash
-   git checkout main && git pull
-   git tag v0.2.4        # one higher than the last tag; `git tag` lists them
-   git push origin v0.2.4
-   ```
-5. **Wait about ten minutes**, then check https://yardwise.meklab.net. That's
-   it - no further steps exist.
+6. Deployment is fully automatic and takes about ten minutes. Verify:
+   `curl -skL https://yardwise.meklab.net/healthz` returns `ok`, and the
+   change is visible in a browser. There are no other deploy steps -
+   **never** write deploy scripts, Kubernetes files, or CI publish jobs.
 
-If the pipeline turns red, the tests failed: your change has a problem. Paste
-the pipeline's error text to your assistant and fix the branch - the live site
-is unaffected until you merge and tag.
+A red pipeline means tests failed; production is untouched. Fix the branch
+and push again. A merged-but-untagged change simply isn't live yet.
 
-## What you can change freely
+### Hard rules
 
-Everything in this repository: how screens look (`templates/`, `static/`),
-what the app does (`garden/`), the database structure (your assistant will
-create "migrations" for that - they apply automatically on release), tests,
-and docs. Be bold. The worst realistic outcome is a red pipeline or a broken
-version that Michael rolls back.
+- Never commit directly to `main` (the server enforces this; don't fight it).
+- Never force-push, delete branches you didn't create, or rewrite history.
+- Never put the token in a committed file, code, or example. `.env` files
+  stay gitignored.
+- Database changes go through Django migrations (`makemigrations`); never
+  edit migration history that's already on main. Migrations run automatically
+  on deploy.
+- Keep the design system: tokens in `yardwise.css`, phone-first, no CSS or JS
+  frameworks, no build tooling, vendored htmx as-is.
+- Tests exist to stay green; add tests with behavior changes. Never weaken an
+  assertion just to pass - if a test fights you, say so and show the user.
+- The PDD (`docs/pdd.md`) is the roadmap for new features - check whether the
+  thing the owner wants is already designed there before inventing a shape.
 
-## What needs Michael (by design)
+### Out of scope - stop and say "this needs Michael"
 
-These aren't in this repository, and your accounts can't touch them - that's
-deliberate, so a mistake here can never break the rest of the household's
-systems:
+Server resources, domains/certificates, secrets and passwords, login/SSO
+behavior (the auth.meklab.net screen), Kubernetes/infrastructure, backups and
+restores, rolling back a bad release, and anything touching repositories
+other than `meklab/yardwise`. The token physically can't reach those; if a
+task seems to require them, finish the code part and tell the owner exactly what
+to ask Michael for, in one sentence she can copy.
 
-- **Server settings**: memory/storage limits, the web address, certificates.
-- **Secrets**: passwords and keys the app uses.
-- **Logins**: adding a user or changing sign-in behavior (that's the
-  auth.meklab.net screen you use to sign in).
-- **Rollbacks and restores**: putting back an old version or recovering data.
+### If production looks broken
 
-If a change you want needs any of those, finish the code part, then tell
-Michael what you need. "The app now sends email, it needs a mail password" is
-a perfect message.
+Tell the owner calmly: nothing is lost (nightly database + photo backups).
+Collect the facts - last tag pushed, what looks wrong - into one short
+message for Michael. He can roll back in minutes. Do not attempt heroics
+through the token.
 
-## If something looks wrong on the live site
+### Session starter for the owner (example prompts)
 
-1. Don't panic - the garden data is backed up nightly, and photos too.
-2. Note what you did last (usually: which version tag you pushed).
-3. Tell Michael: what you expected, what you see, and that version number.
-   He can put the previous version back in a couple of minutes.
-
-## Words you'll meet (cheat sheet for you and your assistant)
-
-| Word | Meaning here |
-|---|---|
-| repository / repo | The project's folder in GitLab, with full history |
-| branch | A scratch copy of the code to try a change on |
-| commit | A saved snapshot of your edits with a note |
-| merge request (MR) | "Please adopt my branch" - merging puts it on `main` |
-| pipeline | Robots that test (and build) your code; green = good |
-| tag / release | A published version number (`v0.2.4`); pushing one deploys |
-| migration | A scripted database change; created by tooling, runs on release |
-| deploy | The new version going live - automatic after a tag |
-
-## For your AI assistant (paste this paragraph into it)
-
-> You are helping maintain YardWise, a Django 5 + PostgreSQL app, server-side
-> templates with htmx, packaged with uv, tests via pytest (`uv run pytest`,
-> sqlite, zero setup). Design doc: docs/pdd.md; scope: docs/scope.md; schema:
-> docs/design/schema.md. Style: no frontend build step, hand-written CSS with
-> tokens in static/css/yardwise.css, phone-first. Rules: never commit to main
-> (branch -> merge request); a release is a `vX.Y.Z` git tag on main;
-> deployment is automatic after tagging - do not add deploy scripts, CI
-> changes beyond .gitlab-ci.yml testing steps, Dockerfile changes are fine.
-> Anything involving servers, secrets, or logins is out of scope - stop and
-> say "this needs Michael".
+- "Set me up from scratch on this laptop." (clone, uv sync, local server)
+- "Add a 'watered today' quick button on a plant page."
+- "The photos page feels slow - can you look?"
+- "Release everything we've merged this week."
+- "What did we change last month?" (`git log`, MR list)

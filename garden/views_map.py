@@ -126,20 +126,34 @@ def _point_in_polygon(x: float, y: float, poly: list) -> bool:
     return inside
 
 
+def _promote_layer(layer) -> bool:
+    """Most-recent-wins: the layer the user just added becomes the primary
+    view; older layers stay as hidden reference toggles (PDD: keep prior
+    imagery; replacing it never moves structured data, R-043). Returns
+    whether this is the property's first layer (which sizes the map)."""
+    others = MapLayer.objects.filter(archived_at__isnull=True).exclude(pk=layer.pk)
+    was_first = not others.exists()
+    others.update(is_primary=False, visible=False)
+    if not (layer.is_primary and layer.visible):
+        layer.is_primary = True
+        layer.visible = True
+        layer.save(update_fields=["is_primary", "visible"])
+    return was_first
+
+
 @require_POST
 @login_required
 def layer_upload(request):
-    """Upload an aerial/reference image. The first one becomes primary and
-    sizes the coordinate space from its pixels (R-037; replacing imagery
-    later never moves structured data, R-043)."""
+    """Upload an aerial/reference image. The newest layer becomes the view;
+    the first one ever also sizes the coordinate space from its pixels."""
     from PIL import Image as PILImage
 
     image = request.FILES["image"]
     name = request.POST.get("name") or image.name
-    is_first = not MapLayer.objects.filter(archived_at__isnull=True).exists()
-    layer = MapLayer.objects.create(name=name, image=image, is_primary=is_first)
-    if is_first:
-        with PILImage.open(layer.image.path) as im:
+    layer = MapLayer.objects.create(name=name, image=image)
+    if _promote_layer(layer):
+        layer.image.open('rb')
+        with PILImage.open(layer.image) as im:
             pmap = PropertyMap.get()
             pmap.width, pmap.height = float(im.width), float(im.height)
             pmap.save(update_fields=["width", "height"])
@@ -240,10 +254,9 @@ def satellite_fetch(request):
         msg = ("Found the address, but the satellite imagery service "
                "didn't answer - try again in a minute.")
         return _map_error(request, msg)
-    is_first = not MapLayer.objects.filter(archived_at__isnull=True).exists()
-    layer = MapLayer(name=f"Satellite - {address[:60]}", is_primary=is_first)
+    layer = MapLayer(name=f"Satellite - {address[:60]}")
     layer.image.save("satellite.png", ContentFile(image_bytes), save=True)
-    if is_first:
+    if _promote_layer(layer):
         pmap = PropertyMap.get()
         pmap.width, pmap.height = 1280.0, 1280.0
         pmap.save(update_fields=["width", "height"])

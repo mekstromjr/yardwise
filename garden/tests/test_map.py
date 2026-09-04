@@ -166,3 +166,34 @@ def test_media_served_to_logged_in_users_only(user_client, client, settings, tmp
     anon = Client()
     r = anon.get("/media/photos/x.png")
     assert r.status_code == 302  # bounced to login, never the file
+
+
+def test_newest_layer_replaces_previous_as_primary(user_client):
+    from garden.models import MapLayer
+
+    def upload(name):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (10, 10), "green").save(buf, "PNG")
+        return user_client.post(
+            reverse("map-layer-upload"),
+            {"image": SimpleUploadedFile(f"{name}.png", buf.getvalue(), "image/png"),
+             "name": name},
+        )
+
+    upload("satellite-ish")
+    first = MapLayer.objects.get()
+    assert first.is_primary and first.visible
+
+    upload("my own aerial")
+    first.refresh_from_db()
+    second = MapLayer.objects.get(name="my own aerial")
+    assert second.is_primary and second.visible  # newest wins
+    assert not first.is_primary and not first.visible  # old kept, hidden
+    # coordinate space sized once, by the first layer only
+    from garden.models import PropertyMap
+    assert PropertyMap.get().width == 10.0

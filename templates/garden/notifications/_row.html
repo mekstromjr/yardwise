@@ -1,0 +1,28 @@
+<div class="row" id="notif-{{ notif.pk }}">
+  {% if notif.is_unread %}
+    <span class="dot {% if notif.kind == 'task_overdue' %}overdue{% else %}due{% endif %}"></span>
+  {% endif %}
+  <div class="grow">
+    <div class="title">
+      {% if notif.link_path %}<a href="{{ notif.link_path }}"
+        style="color:inherit;text-decoration:none">{{ notif.title }}</a>
+      {% else %}{{ notif.title }}{% endif %}
+    </div>
+    <div class="meta">{{ notif.get_kind_display }}{% if notif.body %} · {{ notif.body }}{% endif %}</div>
+  </div>
+  {% if notif.is_unread %}
+  <div class="notif-actions" style="display:flex;gap:6px">
+    <form method="post" action="{% url 'notification-action' notif.pk 'read' %}">
+      {% csrf_token %}<button class="btn" style="padding:7px 12px" type="submit">Read</button>
+    </form>
+    <form method="post" action="{% url 'notification-action' notif.pk 'snooze' %}">
+      {% csrf_token %}<button class="btn" style="padding:7px 12px;background:var(--sky-soft);color:var(--ink)" type="submit"
+        title="Snooze 3 days">Snooze</button>
+    </form>
+    <form method="post" action="{% url 'notification-action' notif.pk 'dismiss' %}">
+      {% csrf_token %}<button class="btn" style="padding:7px 12px;background:var(--sky-soft);color:var(--ink)" type="submit"
+        aria-label="Dismiss">✕</button>
+    </form>
+  </div>
+  {% endif %}
+</div>

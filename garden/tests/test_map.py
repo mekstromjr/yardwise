@@ -126,4 +126,30 @@ def test_satellite_fetch_no_match_shows_error(user_client, monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: FakeResp())
     r = user_client.post(reverse("map-satellite"), {"address": "zzz nowhere"})
-    assert r.status_code == 200 and b"No match" in r.content
+    assert r.status_code == 200 and b"Couldn&#x27;t find" in r.content
+
+
+def test_geocode_prefers_census_result(monkeypatch):
+    import garden.views_map as vm
+
+    class FakeResp:
+        def __init__(self, payload):
+            self.payload = payload
+        def read(self):
+            return self.payload
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=0):
+        url = req.full_url
+        if "census" in url:
+            return FakeResp(
+                b'{"result": {"addressMatches": [{"coordinates": {"x": "-122.3", "y": "47.6"}}]}}'
+            )
+        raise AssertionError("nominatim should not be called when census matches")
+
+    import urllib.request
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert vm._geocode("123 Main St, Yakima, WA 98901") == (47.6, -122.3)

@@ -151,6 +151,42 @@ ESRI_EXPORT = (
     "MapServer/export"
 )
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
+CENSUS = (
+    "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
+)
+
+
+def _geocode(address: str):
+    """US Census first (built for exactly the 'street, city, state zip' form
+    people type; Nominatim's free-form parser often whiffs on it), then
+    Nominatim as the fallback for anything Census can't place.
+    Returns (lat, lon) or None."""
+    import urllib.parse
+    import urllib.request
+
+    def fetch(url):
+        req = urllib.request.Request(url, headers={"User-Agent": "yardwise-selfhosted/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+
+    try:
+        q = urllib.parse.urlencode({
+            "address": address, "benchmark": "Public_AR_Current", "format": "json",
+        })
+        matches = fetch(f"{CENSUS}?{q}")["result"]["addressMatches"]
+        if matches:
+            c = matches[0]["coordinates"]
+            return float(c["y"]), float(c["x"])
+    except Exception:  # noqa: BLE001 - any census hiccup just falls through
+        pass
+    try:
+        q = urllib.parse.urlencode({"q": address, "format": "json", "limit": 1})
+        hits = fetch(f"{NOMINATIM}?{q}")
+        if hits:
+            return float(hits[0]["lat"]), float(hits[0]["lon"])
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 @require_POST
@@ -172,16 +208,15 @@ def satellite_fetch(request):
     span_m = min(max(int(request.POST.get("span_m") or 150), 40), 1000)
     if not address:
         return redirect("map")
-    try:
-        q = urllib.parse.urlencode({"q": address, "format": "json", "limit": 1})
-        req = urllib.request.Request(
-            f"{NOMINATIM}?{q}", headers={"User-Agent": "yardwise-selfhosted/1.0"}
+    coords = _geocode(address)
+    if coords is None:
+        return _map_error(
+            request,
+            f'Couldn\'t find "{address}" on the map - check the spelling, '
+            "or try just street + city + state (no unit numbers).",
         )
-        with urllib.request.urlopen(req, timeout=20) as r:
-            hits = json.loads(r.read())
-        if not hits:
-            return _map_error(request, f'No match for "{address}" - try adding city/state.')
-        lat, lon = float(hits[0]["lat"]), float(hits[0]["lon"])
+    lat, lon = coords
+    try:
         # meters -> degrees (lon corrected by latitude)
         import math
 
@@ -195,7 +230,9 @@ def satellite_fetch(request):
         with urllib.request.urlopen(f"{ESRI_EXPORT}?{q2}", timeout=45) as r:
             image_bytes = r.read()
     except (urllib.error.URLError, ValueError, KeyError):
-        return _map_error(request, "Couldn't fetch satellite imagery - try again shortly.")
+        msg = ("Found the address, but the satellite imagery service "
+               "didn't answer - try again in a minute.")
+        return _map_error(request, msg)
     is_first = not MapLayer.objects.filter(archived_at__isnull=True).exists()
     layer = MapLayer(name=f"Satellite - {address[:60]}", is_primary=is_first)
     layer.image.save("satellite.png", ContentFile(image_bytes), save=True)

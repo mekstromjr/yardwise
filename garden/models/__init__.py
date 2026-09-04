@@ -11,7 +11,17 @@ from .irrigation import (
     ZoneStatus,
     ZoneType,
 )
+from .notifications import Notification, NotificationKind, NotificationPrefs
 from .photos import Photo, Season
+from .planner import (
+    ClimateProfile,
+    CropFamily,
+    GrowAgain,
+    GrowingMethod,
+    PlantingStatus,
+    SeasonalPlanting,
+    Variety,
+)
 from .plants import (
     DatePrecision,
     Foliage,
@@ -67,4 +77,7 @@ __all__ = [
     # irrigation
     "ComponentCondition", "ComponentType", "EventType", "InvestigationStatus",
     "IrrigationComponent", "IrrigationEvent", "IrrigationZone", "ZoneStatus", "ZoneType",
+    "ClimateProfile", "CropFamily", "GrowAgain", "GrowingMethod", "Notification",
+    "NotificationKind", "NotificationPrefs", "PlantingStatus", "SeasonalPlanting",
+    "Variety",
 ]

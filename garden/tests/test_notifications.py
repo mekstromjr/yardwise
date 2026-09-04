@@ -180,3 +180,21 @@ def test_badge_context_counts_unread(user_client):
     assert ctx(request)["unread_count"] == 1
     Notification.objects.update(read_at=timezone.now())
     assert ctx(request)["unread_count"] == 0
+
+
+def test_problem_followup_generates_notification(db):
+    import datetime
+
+    from garden.models import Notification, ProblemCase, ProblemType
+    from garden.notify import refresh
+
+    ptype = ProblemType.objects.create(kind="weed", name="Bindweed")
+    ProblemCase.objects.create(
+        problem_type=ptype, first_observed=datetime.date.today(),
+        follow_up_on=datetime.date.today(),
+    )
+    refresh()
+    n = Notification.objects.get(kind="problem_followup")
+    assert "Bindweed" in n.title and n.link_path.startswith("/problems/")
+    refresh()  # idempotent
+    assert Notification.objects.filter(kind="problem_followup").count() == 1

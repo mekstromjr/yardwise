@@ -1,6 +1,14 @@
 from django.urls import path
 
-from . import views, views_ai, views_map, views_settings
+from . import (
+    views,
+    views_ai,
+    views_irrigation,
+    views_map,
+    views_notifications,
+    views_planner,
+    views_settings,
+)
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -42,4 +50,45 @@ urlpatterns = [
     path("beds/add/", views_settings.bed_form, name="bed-add"),
     path("beds/<int:pk>/", views_settings.bed_form, name="bed-edit"),
     path("beds/<int:pk>/archive/", views_settings.bed_archive, name="bed-archive"),
+    # Vegetable Garden Planner (#24)
+    path("planner/", views_planner.planner_home, name="planner"),
+    path("planner/plantings/add/", views_planner.planting_form, name="planting-add"),
+    path("planner/plantings/<int:pk>/edit/", views_planner.planting_form, name="planting-edit"),
+    path(
+        "planner/plantings/<int:pk>/planted/",
+        views_planner.mark_planted,
+        name="planting-planted",
+    ),
+    path("planner/plantings/<int:pk>/close/", views_planner.close_planting, name="planting-close"),
+    path("planner/varieties/", views_planner.variety_list, name="variety-list"),
+    path("planner/varieties/add/", views_planner.variety_form, name="variety-add"),
+    path("planner/varieties/<int:pk>/edit/", views_planner.variety_form, name="variety-edit"),
+    path("planner/climate/", views_planner.climate_form, name="planner-climate"),
+    # Irrigation (#25)
+    path("irrigation/", views_irrigation.irrigation_overview, name="irrigation-overview"),
+    path("irrigation/zones/add/", views_irrigation.zone_form, name="irrigation-zone-add"),
+    path("irrigation/zones/<int:pk>/", views_irrigation.zone_detail,
+         name="irrigation-zone-detail"),
+    path("irrigation/zones/<int:pk>/edit/", views_irrigation.zone_form,
+         name="irrigation-zone-edit"),
+    path("irrigation/zones/<int:pk>/archive/", views_irrigation.zone_archive,
+         name="irrigation-zone-archive"),
+    path("irrigation/components/add/", views_irrigation.component_form,
+         name="irrigation-component-add"),
+    path("irrigation/components/<int:pk>/edit/", views_irrigation.component_form,
+         name="irrigation-component-edit"),
+    path("irrigation/events/add/", views_irrigation.event_add, name="irrigation-event-add"),
+    # Notifications (#26)
+    path("notifications/", views_notifications.center, name="notifications"),
+    path(
+        "notifications/all-read/",
+        views_notifications.mark_all_read,
+        name="notifications-all-read",
+    ),
+    path("notifications/prefs/", views_notifications.prefs_update, name="notifications-prefs"),
+    path(
+        "notifications/<int:pk>/<str:action>/",
+        views_notifications.action,
+        name="notification-action",
+    ),
 ]

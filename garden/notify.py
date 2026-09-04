@@ -116,16 +116,16 @@ def _materialize_problem_followups(user, today) -> None:
         from .models import ProblemCase  # noqa: F401
     except ImportError:
         return
-    for case in ProblemCase.objects.filter(  # pragma: no cover - model not on this branch
-        resolved_at__isnull=True, followup_on__lte=today
-    ):
+    for case in ProblemCase.objects.exclude(status="resolved").filter(
+        follow_up_on__isnull=False, follow_up_on__lte=today
+    ).select_related("problem_type"):
         Notification.objects.get_or_create(
-            dedupe_key=f"problem-{case.pk}-followup-{case.followup_on.isoformat()}",
+            dedupe_key=f"problem-{case.pk}-followup-{case.follow_up_on.isoformat()}",
             defaults={
                 "kind": NotificationKind.PROBLEM_FOLLOWUP,
-                "title": str(case),
-                "body": "Follow-up check due",
-                "link_path": "",
+                "title": f"Check on {case.problem_type.name}",
+                "body": case.where,
+                "link_path": f"/problems/{case.pk}/",
                 "user": user if user and user.is_authenticated else None,
             },
         )

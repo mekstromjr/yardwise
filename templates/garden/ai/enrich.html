@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Fill details with AI - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ plant }}</div>
+  <h1>Fill details with AI</h1>
+  <div class="sub">Suggestions fill only empty fields - your entries are never touched.</div>
+</header>
+{% if error %}<div class="card">{{ error }}</div>
+{% elif suggestion %}
+<form method="post" class="card">
+  {% csrf_token %}
+  <input type="hidden" name="suggestion" value="{{ suggestion.pk }}">
+  <input type="hidden" name="apply" value="1">
+  {% for field, label, value in fields %}
+    <div class="row">
+      <input type="checkbox" name="accept_{{ field }}" id="f-{{ field }}" checked style="width:auto">
+      <label for="f-{{ field }}" class="grow" style="margin:0">
+        <span class="meta">{{ label }}</span><br>{{ value }}</label>
+    </div>
+  {% endfor %}
+  <p style="margin-top:12px; display:flex; gap:10px">
+    <button class="btn" type="submit">Apply selected</button>
+    <a class="btn secondary" href="{% url 'plant-detail' plant.pk %}">Cancel</a>
+  </p>
+</form>
+{% else %}
+<form method="post" class="card">
+  {% csrf_token %}
+  <p>Ask the assistant to propose values for this plant's empty fields
+     (sun, water, size, toxicity...). You review each one before it's saved.</p>
+  <button class="btn" type="submit">Get suggestions</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -53,6 +53,11 @@
   </section>
   {% endif %}
 
+  {% if ai_enabled %}
+  <p style="margin:2px 0 12px"><a class="chip" href="{% url 'ai-ask' %}">Ask the garden ✦</a>
+    <a class="chip" href="{% url 'ai-identify' %}">Identify from a photo</a></p>
+  {% endif %}
+
   {% if open_problem_count %}
   <p style="margin:2px 0 12px">
     <a class="chip overdue" href="{% url 'problem-list' %}">{{ open_problem_count }} open yard problem{{ open_problem_count|pluralize }}</a>

@@ -1,3 +1,4 @@
+from .ai import AISuggestion, SuggestionKind, SuggestionStatus
 from .beds import Bed
 from .irrigation import (
     ComponentCondition,
@@ -53,14 +54,15 @@ from .vocab import (
 )
 
 __all__ = [
-    "Activity", "ActivityType", "Bed", "BedType", "CaseStatus", "Confidence",
+    "Activity", "ActivityType", "AISuggestion", "Bed", "BedType", "CaseStatus", "Confidence",
     "DatePrecision", "Effectiveness", "Foliage", "ProblemCase", "ProblemKind",
     "ProblemType", "Severity", "Treatment",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
     "JournalEntry", "MapLayer", "OccurrenceStatus", "Photo", "PhotoCategory",
     "Plant", "PropertyMap",
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
-    "SeasonWindow", "SunNeeds", "Tag", "Task", "TaskCategory", "TaskOccurrence",
+    "SeasonWindow", "SuggestionKind", "SuggestionStatus", "SunNeeds", "Tag", "Task",
+    "TaskCategory", "TaskOccurrence",
     "WaterNeeds",
     # irrigation
     "ComponentCondition", "ComponentType", "EventType", "InvestigationStatus",

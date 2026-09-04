@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Ask the garden - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Ask the assistant</div>
+  <h1>Ask the garden</h1>
+  <div class="sub">It knows your plants, open problems, and pending tasks.</div>
+</header>
+<form method="post" class="card">
+  {% csrf_token %}
+  <div class="field">
+    <textarea name="question" rows="2" placeholder="What should I do in the yard this weekend?">{{ question }}</textarea>
+  </div>
+  <button class="btn" type="submit">Ask</button>
+</form>
+{% if answer %}
+<section class="card"><p style="white-space:pre-line">{{ answer }}</p></section>
+{% endif %}
+{% endblock %}

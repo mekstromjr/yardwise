@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_map, views_settings
+from . import views, views_ai, views_map, views_settings
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -14,6 +14,10 @@ urlpatterns = [
     path("plants/<int:pk>/photos/add/", views.photo_add, name="photo-add"),
     path("journal/", views.journal_list, name="journal-list"),
     path("journal/add/", views.journal_add, name="journal-add"),
+    path("ai/identify/", views_ai.identify, name="ai-identify"),
+    path("ai/suggestions/<int:pk>/", views_ai.suggestion_detail, name="ai-suggestion"),
+    path("ai/ask/", views_ai.ask, name="ai-ask"),
+    path("plants/<int:pk>/enrich/", views_ai.plant_enrich, name="plant-enrich"),
     path("map/", views_map.map_page, name="map"),
     path("map/data.json", views_map.map_data, name="map-data"),
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),

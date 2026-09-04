@@ -14,6 +14,7 @@
   <a class="chip harvest" href="?kind={{ kind }}&show={% if show == 'open' %}all{% else %}open{% endif %}">
     {% if show == 'open' %}showing open{% else %}showing all{% endif %}</a>
   <span style="flex:1"></span>
+  {% if ai_enabled %}<a class="btn secondary" href="{% url 'ai-identify' %}">Is this a weed?</a>{% endif %}
   <a class="btn warm" href="{% url 'problem-add' %}">Log a problem</a>
 </div>
 

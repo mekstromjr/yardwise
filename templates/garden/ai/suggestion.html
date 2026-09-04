@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Identification - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">AI suggestion · {{ r.confidence }} confidence</div>
+  <h1>{{ r.name|default:"Not sure" }}</h1>
+  <div class="sub">{% if r.scientific_name %}<em>{{ r.scientific_name }}</em> · {% endif %}{{ r.kind }}</div>
+</header>
+{% if low_confidence %}
+<div class="card" style="border-color:var(--terracotta)">
+  <strong>Low confidence.</strong> Treat this as a lead, not an answer - don't pull or
+  spray anything based on it (get a second photo or a second opinion).
+</div>
+{% endif %}
+{% if s.photo %}
+<div class="card" style="padding:0; overflow:hidden">
+  <img src="{{ s.photo.file.url }}" style="width:100%; max-height:300px; object-fit:cover; display:block" alt="">
+</div>
+{% endif %}
+<section class="card">
+  <p>{{ r.summary }}</p>
+  {% if r.action_advice and r.action_advice != "none needed" %}<p><strong>What to do:</strong> {{ r.action_advice }}</p>{% endif %}
+  {% if r.caution %}<p style="color:var(--terracotta)"><strong>Caution:</strong> {{ r.caution }}</p>{% endif %}
+</section>
+{% if s.status == "pending" %}
+<form method="post" class="quick-actions">
+  {% csrf_token %}
+  {% if r.kind == "weed" or r.kind == "pest" or r.kind == "disease" %}
+    <button class="btn warm" name="action" value="problem">Add to yard problems</button>
+  {% endif %}
+  <button class="btn" name="action" value="plant">Add as a plant</button>
+  <button class="btn secondary" name="action" value="saved">Not sure - save for later</button>
+  <button class="btn secondary" name="action" value="dismissed">Dismiss</button>
+</form>
+{% else %}
+<p class="chip">{{ s.get_status_display }}</p>
+{% endif %}
+{% endblock %}

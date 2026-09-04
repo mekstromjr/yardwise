@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Notifications - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Delivery, not the record - tasks live on Tasks</div>
+  <h1>Notifications {% include "garden/notifications/_badge.html" with unread_count=unread_total %}</h1>
+</header>
+
+{% if unread_total %}
+<form method="post" action="{% url 'notifications-all-read' %}" style="margin-bottom:12px">
+  {% csrf_token %}
+  <button class="btn" type="submit">Mark all read</button>
+</form>
+{% endif %}
+
+<section class="card">
+  <h2>New</h2>
+  {% for label, items in unread_groups %}
+    <div class="meta" style="color:var(--ink-soft);margin:8px 0 2px">{{ label }}</div>
+    {% for notif in items %}{% include "garden/notifications/_row.html" %}{% endfor %}
+  {% empty %}
+    <p class="meta" style="color:var(--ink-soft)">All caught up. The garden will let you know.</p>
+  {% endfor %}
+</section>
+
+{% if read_groups %}
+<section class="card">
+  <h2>Recently read</h2>
+  {% for label, items in read_groups %}
+    <div class="meta" style="color:var(--ink-soft);margin:8px 0 2px">{{ label }}</div>
+    {% for notif in items %}{% include "garden/notifications/_row.html" %}{% endfor %}
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="card">
+  <details>
+    <summary style="cursor:pointer;font-family:var(--display);font-size:17px">Preferences</summary>
+    <form method="post" action="{% url 'notifications-prefs' %}" style="margin-top:10px">
+      {% csrf_token %}
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="checkbox" name="enabled" {% if prefs.enabled %}checked{% endif %}>
+        Notifications on
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        Heads-up
+        <input type="number" name="lead_days" value="{{ prefs.lead_days }}" min="0" max="30"
+               style="width:64px" inputmode="numeric">
+        day(s) before a task is due (0 = due day only)
+      </label>
+      <button class="btn" type="submit">Save preferences</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

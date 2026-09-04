@@ -73,6 +73,13 @@ class HarvestEvent(models.Model):
     """
 
     plant = models.ForeignKey(Plant, on_delete=models.CASCADE, related_name="harvests")
+    seasonal_planting = models.ForeignKey(
+        "garden.SeasonalPlanting",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="harvests",
+    )  # PDD 6.12: harvests link to the specific seasonal planting, not only the variety
     harvested_on = models.DateField()
     quantity = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     unit = models.ForeignKey(HarvestUnit, null=True, blank=True, on_delete=models.PROTECT)

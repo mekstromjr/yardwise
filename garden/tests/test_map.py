@@ -1,0 +1,80 @@
+import json
+
+import pytest
+from django.contrib.auth.models import User
+from django.urls import reverse
+
+from garden.models import Bed, Plant, PlantLocation, PropertyMap
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def user_client(client):
+    client.force_login(User.objects.create_user("m"))
+    return client
+
+
+def test_grid_cell_math():
+    pmap = PropertyMap.get()  # 1000x750, 10x8 default
+    assert pmap.cell_for(0, 0) == "A1"
+    assert pmap.cell_for(999, 749) == "J8"
+    assert pmap.cell_for(450, 400) == "E5"
+    assert pmap.cell_for(2000, 0) == ""  # out of bounds
+
+
+def test_polygon_cells_err_toward_inclusion():
+    pmap = PropertyMap.get()
+    cells = pmap.cells_for_polygon([[50, 50], [250, 50], [250, 140], [50, 140]])
+    assert "A1" in cells and "C2" in cells
+
+
+def test_trace_bed_boundary_and_reject_bad_input(user_client):
+    bed = Bed.objects.create(name="Front Bed")
+    url = reverse("map-bed-boundary", args=[bed.pk])
+    r = user_client.post(url, json.dumps({"boundary": [[0, 0], [100, 0], [100, 100]]}),
+                         content_type="application/json")
+    assert r.status_code == 200 and r.json()["ok"]
+    bed.refresh_from_db()
+    assert len(bed.boundary) == 3
+    r = user_client.post(url, json.dumps({"boundary": [[0, 0]]}),
+                         content_type="application/json")
+    assert r.status_code == 400
+
+
+def test_place_plant_resolves_containing_bed(user_client):
+    bed = Bed.objects.create(name="Front Bed",
+                             boundary=[[0, 0], [200, 0], [200, 200], [0, 200]])
+    plant = Plant.objects.create(common_name="Rose")
+    r = user_client.post(reverse("map-plant-point", args=[plant.pk]),
+                         json.dumps({"x": 100, "y": 100}),
+                         content_type="application/json")
+    body = r.json()
+    assert body["ok"] and body["bed"] == "Front Bed"
+    loc = plant.current_locations.get()
+    assert (loc.point_x, loc.point_y) == (100, 100) and loc.bed == bed
+
+
+def test_place_outside_any_bed_keeps_no_bed(user_client):
+    Bed.objects.create(name="Front Bed", boundary=[[0, 0], [10, 0], [10, 10], [0, 10]])
+    plant = Plant.objects.create(common_name="Oak")
+    r = user_client.post(reverse("map-plant-point", args=[plant.pk]),
+                         json.dumps({"x": 500, "y": 500}),
+                         content_type="application/json")
+    assert r.json()["bed"] == ""
+
+
+def test_map_data_payload(user_client):
+    bed = Bed.objects.create(name="Front Bed", boundary=[[0, 0], [50, 0], [50, 50], [0, 50]])
+    plant = Plant.objects.create(common_name="Rose")
+    PlantLocation.objects.create(plant=plant, bed=bed, point_x=25, point_y=25)
+    data = user_client.get(reverse("map-data")).json()
+    assert data["beds"][0]["cells"] == ["A1"]
+    assert data["points"][0]["name"] == "Rose" and data["points"][0]["cell"] == "A1"
+
+
+def test_map_page_renders_with_focus(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+    r = user_client.get(reverse("map"), {"plant": plant.pk})
+    assert r.status_code == 200
+    assert b"yardwise-map.js" in r.content

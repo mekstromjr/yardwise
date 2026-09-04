@@ -38,6 +38,27 @@
   </section>
   {% endif %}
 
+  {% if planner_milestones %}
+  <section class="card">
+    <h2>Planting calendar</h2>
+    {% for m in planner_milestones %}
+      <a class="row" href="{% url 'planner' %}">
+        <span class="dot {% if m.date <= today %}due{% else %}soon{% endif %}"></span>
+        <div class="grow">
+          <div class="title">{{ m.label }}</div>
+          <div class="meta">{{ m.planting }} · {{ m.date|date:"M j" }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if repair_count %}
+  <p style="margin:2px 0 12px">
+    <a class="chip overdue" href="{% url 'irrigation-overview' %}">{{ repair_count }} irrigation repair{{ repair_count|pluralize }} needed</a>
+  </p>
+  {% endif %}
+
   {% if followups %}
   <section class="card">
     <h2>Problem check-ups</h2>
@@ -51,6 +72,11 @@
       </a>
     {% endfor %}
   </section>
+  {% endif %}
+
+  {% if ai_enabled %}
+  <p style="margin:2px 0 12px"><a class="chip" href="{% url 'ai-ask' %}">Ask the garden ✦</a>
+    <a class="chip" href="{% url 'ai-identify' %}">Identify from a photo</a></p>
   {% endif %}
 
   {% if open_problem_count %}

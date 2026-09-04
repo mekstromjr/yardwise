@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Property map - YardWise{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<header class="page-head">
+  <div class="kicker">The property</div>
+  <h1>Map</h1>
+  <div class="sub" id="map-status">
+    {% if not layers %}Upload an aerial photo to begin - it becomes the map's canvas.{% else %}Tap a bed or marker to identify it.{% endif %}
+  </div>
+</header>
+
+<div id="map" style="height:62vh; border-radius:var(--radius); border:1px solid var(--line); background:var(--sky-soft)"></div>
+
+<details class="section" style="margin-top:12px">
+  <summary>Edit the map</summary>
+  <div class="inner">
+    <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <select id="trace-bed" style="width:auto">
+        <option value="">Trace which bed?</option>
+        {% for bed in beds %}<option value="{{ bed.pk }}">{{ bed.name }} ({{ bed.code }})</option>{% endfor %}
+      </select>
+      <button class="btn small secondary" id="trace-start" type="button">Start tracing</button>
+      <button class="btn small" id="trace-finish" type="button">Finish bed</button>
+    </div>
+    <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <select id="place-plant" style="width:auto">
+        <option value="">Place which plant?</option>
+        {% for plant in plants %}<option value="{{ plant.pk }}">{{ plant }}</option>{% endfor %}
+      </select>
+      <button class="btn small secondary" id="place-start" type="button">Place on map</button>
+    </div>
+    <form method="post" action="{% url 'map-layer-upload' %}" enctype="multipart/form-data"
+          class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      {% csrf_token %}
+      <input type="file" name="image" accept="image/*" required style="width:auto">
+      <input type="text" name="name" placeholder="Layer name (e.g. Aerial 2026)" style="width:auto">
+      <button class="btn small secondary" type="submit">Add aerial/reference image</button>
+    </form>
+  </div>
+</details>
+
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/yardwise-map.js' %}"></script>
+<script>
+  yardwiseMap({ focusPlant: "{{ focus_plant }}", focusBed: "{{ focus_bed }}" });
+</script>
+{% endblock %}

@@ -118,6 +118,9 @@ class PlantLocation(models.Model):
         related_name="plant_locations",
     )
     location_note = models.CharField(max_length=200, blank=True)  # "north edge, fence side"
+    # Exact map point (map module), map units; null = bed-level only.
+    point_x = models.FloatField(null=True, blank=True)
+    point_y = models.FloatField(null=True, blank=True)
     is_current = models.BooleanField(default=True)
     is_primary = models.BooleanField(default=True)
     started_on = models.DateField(null=True, blank=True)

@@ -61,12 +61,20 @@ def today(request):
     )
     open_problem_count = ProblemCase.objects.exclude(status=CaseStatus.RESOLVED).count()
 
+    from .irrigation_today import needs_repair_count
+    from .planner_today import due_milestones
+
+    planner_milestones = due_milestones(on=today_, horizon_days=COMING_SOON_DAYS)
+    repair_count = needs_repair_count()
+
     hour = datetime.datetime.now().hour
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
 
     return render(request, "garden/today.html", {
         "followups": followups,
         "open_problem_count": open_problem_count,
+        "planner_milestones": planner_milestones,
+        "repair_count": repair_count,
         "nav": "today",
         "today": today_,
         "season_label": _season_label(today_),

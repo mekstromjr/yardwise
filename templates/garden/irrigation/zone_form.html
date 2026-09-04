@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{% if zone %}{{ zone.name }}{% else %}Add zone{% endif %} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{% if zone %}{{ zone.code }}{% else %}New zone{% endif %}</div>
+  <h1>{% if zone %}Edit {{ zone.name }}{% else %}Add an irrigation zone{% endif %}</h1>
+  <div class="sub">Only a name is needed to start - "Unknown Zone 1" is a fine name
+    until you learn what it waters. The permanent ID never changes.</div>
+</header>
+
+{% if zone %}{% url 'irrigation-zone-detail' zone.pk as cancel %}
+{% else %}{% url 'irrigation-overview' as cancel %}{% endif %}
+{% include "garden/_simple_form.html" with submit_label="Save zone" cancel_url=cancel %}
+{% endblock %}

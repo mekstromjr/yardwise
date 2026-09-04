@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Garden planner - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Vegetable garden</div>
+  <h1>Planner · {{ year }}</h1>
+  <div class="sub">
+    {% if climate.hardiness_zone %}Zone {{ climate.hardiness_zone }}{% endif %}
+    {% if climate_ready %}{% if climate.hardiness_zone %} · {% endif %}last frost ~{{ climate.avg_last_frost_month }}/{{ climate.avg_last_frost_day }}{% endif %}
+  </div>
+</header>
+
+<form method="get" class="field" style="max-width:200px">
+  <label for="year-select">Growing year</label>
+  <select id="year-select" name="year" onchange="this.form.submit()">
+    {% for y in year_choices %}
+      <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn secondary" type="submit">Go</button></noscript>
+</form>
+
+<p style="display:flex; gap:10px; flex-wrap:wrap">
+  <a class="btn" href="{% url 'planting-add' %}">Plan a crop</a>
+  <a class="btn secondary" href="{% url 'variety-list' %}">Varieties</a>
+  <a class="btn secondary" href="{% url 'planner-climate' %}">Climate profile</a>
+</p>
+
+{% if not climate_ready %}
+<div class="card">
+  <p class="meta">No average last-frost date yet - milestone dates can't be computed.
+    <a href="{% url 'planner-climate' %}">Set up the climate profile</a>.</p>
+</div>
+{% endif %}
+
+{% for group in bed_groups %}
+<section class="card">
+  <h2>{% if group.bed %}{{ group.bed.name }}{% else %}No bed yet{% endif %}</h2>
+  {% for p in group.plantings %}
+    <div class="row">
+      <div class="grow">
+        <div class="title">
+          {{ p.variety }}
+          {% if p.planned_quantity %} × {{ p.planned_quantity }}{% endif %}
+        </div>
+        <div class="meta">{{ p.get_status_display }} · {{ p.get_growing_method_display }}</div>
+        <div class="meta" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px">
+          {% for label, date in p.milestone_list %}
+            <span class="chip">{{ label }} · {{ date|date:"M j" }}</span>
+          {% endfor %}
+          {% for c in p.conflicts %}
+            <span class="chip overdue" title="Same crop family in this bed within 3 years">
+              Rotation: {{ c.variety.get_crop_family_display|lower }} here in {{ c.year }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+      <div style="display:flex; gap:6px; flex-direction:column; align-items:flex-end">
+        <a class="btn secondary" style="padding:7px 14px" href="{% url 'planting-edit' p.pk %}">Edit</a>
+        {% if p.status != "planted" and p.status != "finished" %}
+          <form method="post" action="{% url 'planting-planted' p.pk %}">
+            {% csrf_token %}
+            <button class="btn" style="padding:7px 14px" type="submit">Mark as planted</button>
+          </form>
+        {% elif p.status == "planted" %}
+          <a class="btn secondary" style="padding:7px 14px" href="{% url 'planting-close' p.pk %}">Close season</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</section>
+{% empty %}
+<div class="empty card">
+  <div class="art">🥕</div>
+  <h2>Nothing planned for {{ year }} yet</h2>
+  {% if has_varieties %}
+    <p>Pick a variety and give it a bed - milestone dates come free.</p>
+  {% else %}
+    <p>Start by adding a crop variety, then plan where it grows this year.</p>
+  {% endif %}
+  <p><a class="btn" href="{% url 'planting-add' %}">Plan a crop</a></p>
+</div>
+{% endfor %}
+{% endblock %}

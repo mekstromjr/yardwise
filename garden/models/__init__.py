@@ -1,5 +1,27 @@
+from .ai import AISuggestion, SuggestionKind, SuggestionStatus
 from .beds import Bed
+from .irrigation import (
+    ComponentCondition,
+    ComponentType,
+    EventType,
+    InvestigationStatus,
+    IrrigationComponent,
+    IrrigationEvent,
+    IrrigationZone,
+    ZoneStatus,
+    ZoneType,
+)
+from .notifications import Notification, NotificationKind, NotificationPrefs
 from .photos import Photo, Season
+from .planner import (
+    ClimateProfile,
+    CropFamily,
+    GrowAgain,
+    GrowingMethod,
+    PlantingStatus,
+    SeasonalPlanting,
+    Variety,
+)
 from .plants import (
     DatePrecision,
     Foliage,
@@ -19,6 +41,7 @@ from .problems import (
     Severity,
     Treatment,
 )
+from .property_map import MapLayer, PropertyMap
 from .records import Activity, HarvestEvent, HarvestQuality, JournalEntry
 from .tasks import (
     IntervalAnchor,
@@ -41,12 +64,20 @@ from .vocab import (
 )
 
 __all__ = [
-    "Activity", "ActivityType", "Bed", "BedType", "CaseStatus", "Confidence",
+    "Activity", "ActivityType", "AISuggestion", "Bed", "BedType", "CaseStatus", "Confidence",
     "DatePrecision", "Effectiveness", "Foliage", "ProblemCase", "ProblemKind",
     "ProblemType", "Severity", "Treatment",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
-    "JournalEntry", "OccurrenceStatus", "Photo", "PhotoCategory", "Plant",
+    "JournalEntry", "MapLayer", "OccurrenceStatus", "Photo", "PhotoCategory",
+    "Plant", "PropertyMap",
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
-    "SeasonWindow", "SunNeeds", "Tag", "Task", "TaskCategory", "TaskOccurrence",
+    "SeasonWindow", "SuggestionKind", "SuggestionStatus", "SunNeeds", "Tag", "Task",
+    "TaskCategory", "TaskOccurrence",
     "WaterNeeds",
+    # irrigation
+    "ComponentCondition", "ComponentType", "EventType", "InvestigationStatus",
+    "IrrigationComponent", "IrrigationEvent", "IrrigationZone", "ZoneStatus", "ZoneType",
+    "ClimateProfile", "CropFamily", "GrowAgain", "GrowingMethod", "Notification",
+    "NotificationKind", "NotificationPrefs", "PlantingStatus", "SeasonalPlanting",
+    "Variety",
 ]

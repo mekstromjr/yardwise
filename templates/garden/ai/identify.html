@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Identify - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Ask the assistant</div>
+  <h1>What is this?</h1>
+  <div class="sub">Snap a mystery plant, weed, bug, or sad-looking leaf.</div>
+</header>
+{% if error %}<div class="card" style="color:var(--terracotta); font-weight:700">{{ error }}</div>{% endif %}
+<form method="post" enctype="multipart/form-data" class="card">
+  {% csrf_token %}
+  <div class="field"><label>Photo</label><input type="file" name="photo" accept="image/*" capture="environment" required></div>
+  <div class="field"><label>Your question</label>
+    <input type="text" name="question" placeholder="Is this a weed? What's eating this leaf?"></div>
+  <button class="btn" type="submit">Identify</button>
+</form>
+{% endblock %}

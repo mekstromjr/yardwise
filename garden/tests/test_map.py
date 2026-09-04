@@ -78,3 +78,52 @@ def test_map_page_renders_with_focus(user_client):
     r = user_client.get(reverse("map"), {"plant": plant.pk})
     assert r.status_code == 200
     assert b"yardwise-map.js" in r.content
+
+
+def test_satellite_fetch_geocodes_and_creates_layer(user_client, monkeypatch, settings, tmp_path):
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    calls = []
+
+    class FakeResp:
+        def __init__(self, payload):
+            self.payload = payload
+        def read(self):
+            return self.payload
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=0):
+        url = req if isinstance(req, str) else req.full_url
+        calls.append(url)
+        if "nominatim" in url:
+            return FakeResp(b'[{"lat": "47.6", "lon": "-122.3"}]')
+        return FakeResp(b"\x89PNG fake image bytes")
+
+    import urllib.request
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    r = user_client.post(reverse("map-satellite"), {"address": "123 Main St", "span_m": "150"})
+    assert r.status_code == 302
+    from garden.models import MapLayer, PropertyMap
+    layer = MapLayer.objects.get()
+    assert layer.is_primary and "123 Main St" in layer.name
+    assert PropertyMap.get().width == 1600.0
+    assert any("nominatim" in u for u in calls) and any("World_Imagery" in u for u in calls)
+
+
+def test_satellite_fetch_no_match_shows_error(user_client, monkeypatch):
+    import urllib.request
+
+    class FakeResp:
+        def read(self):
+            return b"[]"
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: FakeResp())
+    r = user_client.post(reverse("map-satellite"), {"address": "zzz nowhere"})
+    assert r.status_code == 200 and b"No match" in r.content

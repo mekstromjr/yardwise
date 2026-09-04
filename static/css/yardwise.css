@@ -317,6 +317,8 @@ nav.primary a.add-btn .glyph {
 }
 /* On phones, "Add plant" won't fit under the button - shorten via ellipsis */
 nav.primary a.add-btn { white-space: nowrap; overflow: hidden; }
+/* entries that only fit the desktop sidebar (phone bottom bar is full) */
+nav.primary a.desktop-only { display: none; }
 
 /* user identity entry */
 nav.primary a.user-entry .glyph.avatar {
@@ -354,6 +356,7 @@ nav.primary a.user-entry .user-name {
     font-size: 15px;
   }
   nav.primary a.add-btn .glyph { margin-top: 0; width: 30px; height: 30px; font-size: 20px; }
+  nav.primary a.desktop-only { display: flex; }
   /* Sidebar splits into places (top) and actions/identity (bottom): Add plant
      sits above the user tile, so its accent color reads as "action", not as an
      odd nav entry. Phone keeps the conventional centered raised button (DOM
@@ -382,3 +385,25 @@ nav.primary a.user-entry .user-name {
     to { opacity: 1; transform: none; }
   }
 }
+
+/* --- explore tiles on Today ---------------------------------------------- */
+.explore-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 2px 0 14px;
+}
+.explore-tiles a {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 6px 10px;
+  text-align: center;
+  text-decoration: none;
+  color: var(--fir-deep);
+  font-size: 13px;
+  font-weight: 700;
+}
+.explore-tiles a:active { transform: scale(0.97); }
+.explore-tiles .tile-glyph { display: block; font-size: 22px; margin-bottom: 3px; color: var(--moss); }

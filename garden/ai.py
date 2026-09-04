@@ -154,3 +154,44 @@ def ask(question: str, context: str, region: str) -> str:
         {"role": "system", "content": system},
         {"role": "user", "content": f"My garden records:\n{context}\n\nQuestion: {question}"},
     ])
+
+
+def lookup_plant(name: str, region: str) -> list[dict]:
+    """Plant-creation lookup: candidate species/cultivars for a typed name,
+    each with the profile fields the Add Plant form can pre-fill. Candidates
+    are suggestions - the user picks one (or none) and everything remains
+    editable before saving."""
+    system = (
+        "A home gardener is adding a plant to their garden notebook and typed a name. "
+        f"They garden in {region or 'the Pacific Northwest, USA'}. Respond ONLY with a "
+        'JSON object {"candidates": [...]} of 1-4 likely matches, most likely first. '
+        "Each candidate: common_name, botanical_name, summary (1 sentence, what it is "
+        "and why someone grows it), plant_type (one of: Annual/Biennial/Perennial/"
+        "Bulb/Corm/Tuber/Shrub/Tree/Vine/Herb/Vegetable/Fruit/Groundcover), is_edible "
+        "(bool), sun (full/part/shade), water_needs (low/moderate/high), foliage "
+        "(evergreen/deciduous/semi or empty), mature_height, mature_width (like "
+        "'6-8 ft'), soil_notes (short), toxicity_notes (pet/child safety - empty "
+        "string if none known). Omit any field you are unsure of. If the name is "
+        "ambiguous (e.g. 'daisy'), make the candidates meaningfully different."
+    )
+    raw = complete(
+        [{"role": "system", "content": system},
+         {"role": "user", "content": f"The plant name they typed: {name}"}],
+        json_mode=True,
+    )
+    try:
+        candidates = json.loads(raw).get("candidates", [])
+    except json.JSONDecodeError as exc:
+        raise AIError(f"unparseable lookup: {raw[:200]}") from exc
+    clean = []
+    for c in candidates[:4]:
+        if not isinstance(c, dict) or not c.get("common_name"):
+            continue
+        for f in ("sun", "water_needs", "foliage"):
+            allowed = {"sun": ["full", "part", "shade"],
+                       "water_needs": ["low", "moderate", "high"],
+                       "foliage": ["evergreen", "deciduous", "semi"]}[f]
+            if c.get(f) not in allowed:
+                c.pop(f, None)
+        clean.append(c)
+    return clean

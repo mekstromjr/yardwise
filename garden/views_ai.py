@@ -174,3 +174,52 @@ def ask(request):
             )
     return render(request, "garden/ai/ask.html",
                   {"nav": "today", "question": question, "answer": answer})
+
+
+# Fields a lookup candidate may pre-fill on the Add Plant form.
+LOOKUP_PREFILL_FIELDS = [
+    "common_name", "botanical_name", "is_edible", "sun", "water_needs",
+    "foliage", "mature_height", "mature_width", "soil_notes", "toxicity_notes",
+]
+
+
+@login_required
+def plant_lookup(request):
+    """Name -> AI candidates -> pick one -> Add Plant form arrives pre-filled.
+
+    Nothing is saved here: the chosen candidate goes into the session and the
+    regular Add Plant form (fully editable) does the actual creation."""
+    _require_ai()
+    name = (request.POST.get("name") or request.GET.get("name") or "").strip()
+    if request.method == "POST" and request.POST.get("choose"):
+        candidates = request.session.get("plant_lookup_candidates") or []
+        idx = int(request.POST["choose"])
+        if 0 <= idx < len(candidates):
+            chosen = candidates[idx]
+            prefill = {f: chosen[f] for f in LOOKUP_PREFILL_FIELDS if f in chosen}
+            ptype = chosen.get("plant_type", "")
+            if ptype:  # match user vocabulary case-insensitively; never create vocab
+                from .models import PlantType
+
+                match = PlantType.objects.filter(
+                    name__iexact=ptype, archived_at__isnull=True
+                ).first()
+                if match:
+                    prefill["plant_type"] = match.pk
+            request.session["plant_prefill"] = prefill
+            request.session["plant_prefill_note"] = chosen.get("summary", "")
+        return redirect("plant-add")
+    if request.method == "POST" and name:
+        try:
+            candidates = ai.lookup_plant(name, region="")
+        except ai.AIError:
+            candidates = []
+        if not candidates:
+            return render(request, "garden/ai/lookup.html", {
+                "nav": "plants", "name": name,
+                "error": "Couldn't look that up right now - you can still add it by hand.",
+            })
+        request.session["plant_lookup_candidates"] = candidates
+        return render(request, "garden/ai/lookup.html",
+                      {"nav": "plants", "name": name, "candidates": candidates})
+    return render(request, "garden/ai/lookup.html", {"nav": "plants", "name": name})

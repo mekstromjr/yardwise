@@ -423,3 +423,80 @@ def test_bed_archive_refused_while_plants_present(user_client):
     user_client.post(reverse("bed-archive", args=[bed.pk]))
     bed.refresh_from_db()
     assert bed.archived_at is not None
+
+
+# --- Yard Problems (#22) -----------------------------------------------------
+
+
+def test_log_problem_creates_type_and_case(user_client):
+    from garden.models import ProblemCase, ProblemType
+
+    plant = Plant.objects.create(common_name="Rose")
+    r = user_client.post(reverse("problem-add"), {
+        "kind": "pest", "type_name": "Aphids",
+        "plants": [plant.pk], "first_observed": datetime.date.today(),
+        "severity": "moderate", "confidence": "unknown",
+        "follow_up_on": datetime.date.today() + datetime.timedelta(days=7),
+    })
+    assert r.status_code == 302
+    case = ProblemCase.objects.get()
+    assert case.problem_type.name == "Aphids" and case.problem_type.kind == "pest"
+    # logging the same name reuses the type record (case-insensitive)
+    user_client.post(reverse("problem-add"), {
+        "kind": "pest", "type_name": "aphids",
+        "first_observed": datetime.date.today(),
+        "severity": "isolated", "confidence": "unknown",
+    })
+    assert ProblemType.objects.count() == 1
+    assert ProblemCase.objects.count() == 2
+
+
+def test_problem_shows_on_plant_profile_and_today(user_client):
+    from garden.models import ProblemCase, ProblemType
+
+    plant = Plant.objects.create(common_name="Pear")
+    ptype = ProblemType.objects.create(kind="disease", name="Fire blight")
+    case = ProblemCase.objects.create(
+        problem_type=ptype, first_observed=datetime.date.today(),
+        follow_up_on=datetime.date.today(),
+    )
+    case.plants.add(plant)
+    r = user_client.get(reverse("plant-detail", args=[plant.pk]))
+    assert b"Fire blight" in r.content and b"Active problems" in r.content
+    r = user_client.get(reverse("today"))
+    assert b"Problem check-ups" in r.content and b"Fire blight" in r.content
+
+
+def test_treatment_moves_status_and_resolution_clears_today(user_client):
+    from garden.models import ProblemCase, ProblemType
+
+    Plant.objects.create(common_name="Pear")  # Today needs a plant to leave empty-state
+    ptype = ProblemType.objects.create(kind="weed", name="Bindweed", seed_alert=True)
+    case = ProblemCase.objects.create(
+        problem_type=ptype, first_observed=datetime.date.today(),
+        follow_up_on=datetime.date.today(),
+    )
+    r = user_client.post(reverse("treatment-add", args=[case.pk]), {
+        "treated_on": datetime.date.today(), "method": "Dug out roots",
+        "effectiveness": "unknown",
+    })
+    assert r.status_code == 302
+    case.refresh_from_db()
+    assert case.status == "treating"
+    # resolve via status button
+    user_client.post(reverse("problem-detail", args=[case.pk]), {"status": "resolved"})
+    case.refresh_from_db()
+    assert case.status == "resolved"
+    r = user_client.get(reverse("today"))
+    assert b"Problem check-ups" not in r.content  # resolved cases leave Today
+
+
+def test_problem_list_filters_by_kind(user_client):
+    from garden.models import ProblemCase, ProblemType
+
+    weed = ProblemType.objects.create(kind="weed", name="Dandelion")
+    pest = ProblemType.objects.create(kind="pest", name="Slugs")
+    ProblemCase.objects.create(problem_type=weed, first_observed=datetime.date.today())
+    ProblemCase.objects.create(problem_type=pest, first_observed=datetime.date.today())
+    r = user_client.get(reverse("problem-list"), {"kind": "weed"})
+    assert b"Dandelion" in r.content and b"Slugs" not in r.content

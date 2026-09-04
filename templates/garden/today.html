@@ -38,6 +38,27 @@
   </section>
   {% endif %}
 
+  {% if followups %}
+  <section class="card">
+    <h2>Problem check-ups</h2>
+    {% for case in followups %}
+      <a class="row" href="{% url 'problem-detail' case.pk %}">
+        <span class="dot {% if case.follow_up_on <= today %}overdue{% else %}soon{% endif %}"></span>
+        <div class="grow">
+          <div class="title">{{ case.problem_type.name }}</div>
+          <div class="meta">{{ case.where }} · recheck {{ case.follow_up_on|date:"M j" }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if open_problem_count %}
+  <p style="margin:2px 0 12px">
+    <a class="chip overdue" href="{% url 'problem-list' %}">{{ open_problem_count }} open yard problem{{ open_problem_count|pluralize }}</a>
+  </p>
+  {% endif %}
+
   {% if watched %}
   <section class="card">
     <h2>Watching</h2>

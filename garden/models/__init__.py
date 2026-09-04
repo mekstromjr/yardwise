@@ -9,6 +9,16 @@ from .plants import (
     SunNeeds,
     WaterNeeds,
 )
+from .problems import (
+    CaseStatus,
+    Confidence,
+    Effectiveness,
+    ProblemCase,
+    ProblemKind,
+    ProblemType,
+    Severity,
+    Treatment,
+)
 from .records import Activity, HarvestEvent, HarvestQuality, JournalEntry
 from .tasks import (
     IntervalAnchor,
@@ -31,7 +41,9 @@ from .vocab import (
 )
 
 __all__ = [
-    "Activity", "ActivityType", "Bed", "BedType", "DatePrecision", "Foliage",
+    "Activity", "ActivityType", "Bed", "BedType", "CaseStatus", "Confidence",
+    "DatePrecision", "Effectiveness", "Foliage", "ProblemCase", "ProblemKind",
+    "ProblemType", "Severity", "Treatment",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
     "JournalEntry", "OccurrenceStatus", "Photo", "PhotoCategory", "Plant",
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",

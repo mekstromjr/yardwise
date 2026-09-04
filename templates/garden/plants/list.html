@@ -4,19 +4,59 @@
 <header class="page-head">
   <div class="kicker">The inventory</div>
   <h1>Plants</h1>
-  <div class="sub">{{ total }} plant{{ total|pluralize }} in the notebook</div>
+  <div class="sub">Find the plants you need by name, location, type, or tag.</div>
 </header>
 
-<div class="searchbar">
-  <span class="icon">⌕</span>
-  <input type="search" name="q" placeholder="Search by name, cultivar, tag..."
-         value="{{ q }}"
-         hx-get="{% url 'plant-list' %}" hx-trigger="input changed delay:300ms, search"
-         hx-target="#plant-results" hx-select="#plant-results" hx-swap="outerHTML"
-         hx-push-url="true">
-</div>
+<div id="plant-browser">
+  <form method="get" class="plant-filters"
+        hx-get="{% url 'plant-list' %}"
+        hx-trigger="input changed delay:300ms from:input[type='search'], change from:select"
+        hx-target="#plant-browser" hx-select="#plant-browser" hx-swap="outerHTML"
+        hx-push-url="true">
+    <div class="searchbar">
+      <span class="icon">⌕</span>
+      <input type="search" name="q" placeholder="Search by name, cultivar, tag..."
+             value="{{ q }}">
+    </div>
+    <div class="filter-grid">
+      <label><span>Bed or area</span>
+        <select name="bed">
+          <option value="">All beds</option>
+          {% for bed in beds %}<option value="{{ bed.pk }}" {% if selected_bed == bed.pk|stringformat:"s" %}selected{% endif %}>{{ bed.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label><span>Plant type</span>
+        <select name="plant_type">
+          <option value="">All types</option>
+          {% for type in plant_types %}<option value="{{ type.pk }}" {% if selected_plant_type == type.pk|stringformat:"s" %}selected{% endif %}>{{ type.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label><span>Use</span>
+        <select name="use">
+          <option value="">All uses</option>
+          <option value="edible" {% if selected_use == "edible" %}selected{% endif %}>Edible</option>
+          <option value="ornamental" {% if selected_use == "ornamental" %}selected{% endif %}>Ornamental</option>
+        </select>
+      </label>
+      <label><span>Tag</span>
+        <select name="tag">
+          <option value="">All tags</option>
+          {% for tag in tags %}<option value="{{ tag.pk }}" {% if selected_tag == tag.pk|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label><span>Status</span>
+        <select name="status">
+          {% for value, label in statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="filter-actions">
+      <button class="btn small" type="submit">Apply filters</button>
+      {% if filters_active %}<a href="{% url 'plant-list' %}">Clear filters</a>{% endif %}
+    </div>
+  </form>
 
-<div id="plant-results">
+  <p class="results-count">{{ result_count }} plant{{ result_count|pluralize }} found</p>
   {% if plants %}
     <div class="plant-grid">
       {% for plant in plants %}
@@ -39,9 +79,9 @@
         </a>
       {% endfor %}
     </div>
-  {% elif q %}
+  {% elif filters_active %}
     <div class="empty"><div class="art">⌕</div><h2>No matches</h2>
-      <p>Nothing in the notebook matches "{{ q }}".</p></div>
+      <p>Try clearing one or more filters.</p></div>
   {% else %}
     <div class="empty card"><div class="art">🌱</div>
       <h2>Your garden is ready to grow</h2>

@@ -217,6 +217,44 @@ details.section .inner { padding: 2px 16px 14px; }
 /* --- search bar --------------------------------------------------------- */
 .searchbar { position: relative; margin-bottom: 14px; }
 .searchbar input { padding-left: 38px; }
+
+.plant-filters {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.plant-filters .searchbar { margin-bottom: 10px; }
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+.filter-grid label > span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 3px 2px;
+}
+.filter-grid select { width: 100%; }
+.filter-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+.filter-actions a { color: var(--fir); font-size: 14px; font-weight: 700; }
+.results-count { color: var(--ink-soft); font-size: 13px; margin: 10px 2px; }
+
+@media (min-width: 480px) {
+  .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 800px) {
+  .filter-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
 .searchbar .icon {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
   color: var(--ink-soft);

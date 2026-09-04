@@ -27,4 +27,4 @@ USER app
 EXPOSE 8000
 # Migrations run on start: single-replica app, so this is safe and means a new
 # image version needs no manual migration step - important for the handover.
-CMD ["/bin/sh", "-c", "/app/.venv/bin/python manage.py migrate --noinput && exec /app/.venv/bin/gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 3"]
+CMD ["/bin/sh", "-c", "/app/.venv/bin/python manage.py migrate --noinput && exec /app/.venv/bin/gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 3 --timeout 90"]

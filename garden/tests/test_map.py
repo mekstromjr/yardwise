@@ -109,7 +109,7 @@ def test_satellite_fetch_geocodes_and_creates_layer(user_client, monkeypatch, se
     from garden.models import MapLayer, PropertyMap
     layer = MapLayer.objects.get()
     assert layer.is_primary and "123 Main St" in layer.name
-    assert PropertyMap.get().width == 1600.0
+    assert PropertyMap.get().width == 1280.0
     assert any("nominatim" in u for u in calls) and any("World_Imagery" in u for u in calls)
 
 
@@ -153,3 +153,16 @@ def test_geocode_prefers_census_result(monkeypatch):
     import urllib.request
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     assert vm._geocode("123 Main St, Yakima, WA 98901") == (47.6, -122.3)
+
+
+def test_media_served_to_logged_in_users_only(user_client, client, settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path)
+    (tmp_path / "photos").mkdir()
+    (tmp_path / "photos" / "x.png").write_bytes(b"\x89PNG fake")
+    r = user_client.get("/media/photos/x.png")
+    assert r.status_code == 200
+    from django.test import Client
+
+    anon = Client()
+    r = anon.get("/media/photos/x.png")
+    assert r.status_code == 302  # bounced to login, never the file

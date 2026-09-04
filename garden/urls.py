@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_settings
+from . import views, views_planner, views_settings
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -29,4 +29,18 @@ urlpatterns = [
     path("beds/add/", views_settings.bed_form, name="bed-add"),
     path("beds/<int:pk>/", views_settings.bed_form, name="bed-edit"),
     path("beds/<int:pk>/archive/", views_settings.bed_archive, name="bed-archive"),
+    # Vegetable Garden Planner (#24)
+    path("planner/", views_planner.planner_home, name="planner"),
+    path("planner/plantings/add/", views_planner.planting_form, name="planting-add"),
+    path("planner/plantings/<int:pk>/edit/", views_planner.planting_form, name="planting-edit"),
+    path(
+        "planner/plantings/<int:pk>/planted/",
+        views_planner.mark_planted,
+        name="planting-planted",
+    ),
+    path("planner/plantings/<int:pk>/close/", views_planner.close_planting, name="planting-close"),
+    path("planner/varieties/", views_planner.variety_list, name="variety-list"),
+    path("planner/varieties/add/", views_planner.variety_form, name="variety-add"),
+    path("planner/varieties/<int:pk>/edit/", views_planner.variety_form, name="variety-edit"),
+    path("planner/climate/", views_planner.climate_form, name="planner-climate"),
 ]

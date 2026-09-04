@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{% if planting %}Edit planting{% else %}Plan a crop{% endif %} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Garden planner</div>
+  <h1>{% if planting %}{{ planting.variety }} · {{ planting.year }}{% else %}Plan a crop{% endif %}</h1>
+  <div class="sub">Only the variety and year are needed - dates fill in as the season happens.</div>
+</header>
+{% url 'planner' as cancel_url %}
+{% include "garden/_simple_form.html" %}
+{% endblock %}

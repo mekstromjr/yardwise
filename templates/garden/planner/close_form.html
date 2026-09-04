@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Close season - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">End of season</div>
+  <h1>{{ planting.variety }} · {{ planting.year }}</h1>
+  <div class="sub">Wraps up this year's grow. The variety stays in your library for next year.</div>
+</header>
+{% url 'planner' as cancel_url %}
+{% include "garden/_simple_form.html" with submit_label="Finish season" %}
+{% endblock %}

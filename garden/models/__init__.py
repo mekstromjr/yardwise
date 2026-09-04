@@ -1,5 +1,14 @@
 from .beds import Bed
 from .photos import Photo, Season
+from .planner import (
+    ClimateProfile,
+    CropFamily,
+    GrowAgain,
+    GrowingMethod,
+    PlantingStatus,
+    SeasonalPlanting,
+    Variety,
+)
 from .plants import (
     DatePrecision,
     Foliage,
@@ -31,10 +40,11 @@ from .vocab import (
 )
 
 __all__ = [
-    "Activity", "ActivityType", "Bed", "BedType", "DatePrecision", "Foliage",
+    "Activity", "ActivityType", "Bed", "BedType", "ClimateProfile", "CropFamily",
+    "DatePrecision", "Foliage", "GrowAgain", "GrowingMethod",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
     "JournalEntry", "OccurrenceStatus", "Photo", "PhotoCategory", "Plant",
-    "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
-    "SeasonWindow", "SunNeeds", "Tag", "Task", "TaskCategory", "TaskOccurrence",
-    "WaterNeeds",
+    "PlantLocation", "PlantStatus", "PlantType", "PlantingStatus", "Priority",
+    "ScheduleKind", "Season", "SeasonWindow", "SeasonalPlanting", "SunNeeds", "Tag",
+    "Task", "TaskCategory", "TaskOccurrence", "Variety", "WaterNeeds",
 ]

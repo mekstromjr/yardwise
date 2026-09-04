@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Climate profile - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Garden planner</div>
+  <h1>Climate profile</h1>
+  <div class="sub">Frost dates drive every computed planting milestone. Month and day as numbers, e.g. 4 / 15 for mid-April.</div>
+</header>
+{% url 'planner' as cancel_url %}
+{% include "garden/_simple_form.html" %}
+{% endblock %}

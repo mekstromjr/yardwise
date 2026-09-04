@@ -218,14 +218,24 @@ details.section .inner { padding: 2px 16px 14px; }
 .searchbar { position: relative; margin-bottom: 14px; }
 .searchbar input { padding-left: 38px; }
 
-.plant-filters {
+.plant-tools { margin-bottom: 10px; }
+.plant-tools .searchbar { margin-bottom: 7px; }
+.advanced-filters > summary {
+  color: var(--fir);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  list-style-position: inside;
+  padding: 5px 2px;
+  width: fit-content;
+}
+.advanced-filter-panel {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  margin-top: 5px;
   padding: 12px;
-  margin-bottom: 12px;
 }
-.plant-filters .searchbar { margin-bottom: 10px; }
 .filter-grid {
   display: grid;
   grid-template-columns: 1fr;

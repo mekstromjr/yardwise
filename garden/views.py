@@ -126,6 +126,9 @@ def plant_list(request):
         "selected_use": use,
         "selected_tag": tag,
         "selected_status": status,
+        "advanced_filters_active": any(
+            (bed, plant_type, use, tag, status != PlantStatus.ACTIVE)
+        ),
         "filters_active": any((q, bed, plant_type, use, tag, status != PlantStatus.ACTIVE)),
     })
 

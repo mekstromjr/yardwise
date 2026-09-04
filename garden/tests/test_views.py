@@ -115,6 +115,21 @@ def test_plant_filters_ignore_invalid_url_values(user_client):
     assert b"Pear" in r.content
 
 
+def test_advanced_filters_are_collapsed_until_one_is_active(user_client):
+    bed = Bed.objects.create(name="Kitchen Garden")
+    plant = Plant.objects.create(common_name="Pear")
+    PlantLocation.objects.create(plant=plant, bed=bed)
+
+    default = user_client.get(reverse("plant-list"))
+    assert not default.context["advanced_filters_active"]
+    assert b'<details class="advanced-filters"' in default.content
+
+    filtered = user_client.get(reverse("plant-list"), {"bed": bed.pk})
+    assert filtered.context["advanced_filters_active"]
+    assert b'<details class="advanced-filters" open>' in filtered.content
+    assert b"Advanced filters" in filtered.content and b"active" in filtered.content
+
+
 def test_editing_location_creates_history_not_overwrite(user_client):
     bed1 = Bed.objects.create(name="Front Bed")
     bed2 = Bed.objects.create(name="Back Bed")

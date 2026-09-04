@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_settings
+from . import views, views_notifications, views_settings
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -29,4 +29,16 @@ urlpatterns = [
     path("beds/add/", views_settings.bed_form, name="bed-add"),
     path("beds/<int:pk>/", views_settings.bed_form, name="bed-edit"),
     path("beds/<int:pk>/archive/", views_settings.bed_archive, name="bed-archive"),
+    path("notifications/", views_notifications.center, name="notifications"),
+    path(
+        "notifications/all-read/",
+        views_notifications.mark_all_read,
+        name="notifications-all-read",
+    ),
+    path("notifications/prefs/", views_notifications.prefs_update, name="notifications-prefs"),
+    path(
+        "notifications/<int:pk>/<str:action>/",
+        views_notifications.action,
+        name="notification-action",
+    ),
 ]

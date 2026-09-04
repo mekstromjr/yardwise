@@ -1,4 +1,5 @@
 from .beds import Bed
+from .notifications import Notification, NotificationKind, NotificationPrefs
 from .photos import Photo, Season
 from .plants import (
     DatePrecision,
@@ -33,7 +34,8 @@ from .vocab import (
 __all__ = [
     "Activity", "ActivityType", "Bed", "BedType", "DatePrecision", "Foliage",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
-    "JournalEntry", "OccurrenceStatus", "Photo", "PhotoCategory", "Plant",
+    "JournalEntry", "Notification", "NotificationKind", "NotificationPrefs",
+    "OccurrenceStatus", "Photo", "PhotoCategory", "Plant",
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
     "SeasonWindow", "SunNeeds", "Tag", "Task", "TaskCategory", "TaskOccurrence",
     "WaterNeeds",

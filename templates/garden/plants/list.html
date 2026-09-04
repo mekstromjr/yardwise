@@ -8,7 +8,7 @@
 </header>
 
 <div id="plant-browser">
-  <form method="get" class="plant-filters"
+  <form method="get" class="plant-tools"
         hx-get="{% url 'plant-list' %}"
         hx-trigger="input changed delay:300ms from:input[type='search'], change from:select"
         hx-target="#plant-browser" hx-select="#plant-browser" hx-swap="outerHTML"
@@ -18,42 +18,47 @@
       <input type="search" name="q" placeholder="Search by name, cultivar, tag..."
              value="{{ q }}">
     </div>
-    <div class="filter-grid">
-      <label><span>Bed or area</span>
-        <select name="bed">
-          <option value="">All beds</option>
-          {% for bed in beds %}<option value="{{ bed.pk }}" {% if selected_bed == bed.pk|stringformat:"s" %}selected{% endif %}>{{ bed.name }}</option>{% endfor %}
-        </select>
-      </label>
-      <label><span>Plant type</span>
-        <select name="plant_type">
-          <option value="">All types</option>
-          {% for type in plant_types %}<option value="{{ type.pk }}" {% if selected_plant_type == type.pk|stringformat:"s" %}selected{% endif %}>{{ type.name }}</option>{% endfor %}
-        </select>
-      </label>
-      <label><span>Use</span>
-        <select name="use">
-          <option value="">All uses</option>
-          <option value="edible" {% if selected_use == "edible" %}selected{% endif %}>Edible</option>
-          <option value="ornamental" {% if selected_use == "ornamental" %}selected{% endif %}>Ornamental</option>
-        </select>
-      </label>
-      <label><span>Tag</span>
-        <select name="tag">
-          <option value="">All tags</option>
-          {% for tag in tags %}<option value="{{ tag.pk }}" {% if selected_tag == tag.pk|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>{% endfor %}
-        </select>
-      </label>
-      <label><span>Status</span>
-        <select name="status">
-          {% for value, label in statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
-      </label>
-    </div>
-    <div class="filter-actions">
-      <button class="btn small" type="submit">Apply filters</button>
-      {% if filters_active %}<a href="{% url 'plant-list' %}">Clear filters</a>{% endif %}
-    </div>
+    <details class="advanced-filters" {% if advanced_filters_active %}open{% endif %}>
+      <summary>Advanced filters{% if advanced_filters_active %} · active{% endif %}</summary>
+      <div class="advanced-filter-panel">
+        <div class="filter-grid">
+          <label><span>Bed or area</span>
+            <select name="bed">
+              <option value="">All beds</option>
+              {% for bed in beds %}<option value="{{ bed.pk }}" {% if selected_bed == bed.pk|stringformat:"s" %}selected{% endif %}>{{ bed.name }}</option>{% endfor %}
+            </select>
+          </label>
+          <label><span>Plant type</span>
+            <select name="plant_type">
+              <option value="">All types</option>
+              {% for type in plant_types %}<option value="{{ type.pk }}" {% if selected_plant_type == type.pk|stringformat:"s" %}selected{% endif %}>{{ type.name }}</option>{% endfor %}
+            </select>
+          </label>
+          <label><span>Use</span>
+            <select name="use">
+              <option value="">All uses</option>
+              <option value="edible" {% if selected_use == "edible" %}selected{% endif %}>Edible</option>
+              <option value="ornamental" {% if selected_use == "ornamental" %}selected{% endif %}>Ornamental</option>
+            </select>
+          </label>
+          <label><span>Tag</span>
+            <select name="tag">
+              <option value="">All tags</option>
+              {% for tag in tags %}<option value="{{ tag.pk }}" {% if selected_tag == tag.pk|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>{% endfor %}
+            </select>
+          </label>
+          <label><span>Status</span>
+            <select name="status">
+              {% for value, label in statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+        </div>
+        <div class="filter-actions">
+          <button class="btn small" type="submit">Apply filters</button>
+          {% if filters_active %}<a href="{% url 'plant-list' %}">Clear filters</a>{% endif %}
+        </div>
+      </div>
+    </details>
   </form>
 
   <p class="results-count">{{ result_count }} plant{{ result_count|pluralize }} found</p>

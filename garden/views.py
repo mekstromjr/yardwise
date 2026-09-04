@@ -6,11 +6,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import PlantForm
 from .models import (
+    Bed,
     OccurrenceStatus,
     Photo,
     Plant,
     PlantLocation,
     PlantStatus,
+    PlantType,
+    Tag,
     TaskOccurrence,
 )
 
@@ -67,11 +70,18 @@ def today(request):
 @login_required
 def plant_list(request):
     q = request.GET.get("q", "").strip()
+    status = request.GET.get("status", PlantStatus.ACTIVE)
+    valid_statuses = {value for value, _label in PlantStatus.choices}
+    if status != "all" and status not in valid_statuses:
+        status = PlantStatus.ACTIVE
+
     plants = (
-        Plant.objects.filter(status=PlantStatus.ACTIVE)
+        Plant.objects.all()
         .select_related("primary_photo")
         .prefetch_related("locations__bed")
     )
+    if status != "all":
+        plants = plants.filter(status=status)
     if q:
         plants = plants.filter(
             Q(common_name__icontains=q)
@@ -80,11 +90,43 @@ def plant_list(request):
             | Q(tags__name__icontains=q)
             | Q(locations__bed__name__icontains=q)
         ).distinct()
+
+    bed = request.GET.get("bed", "")
+    plant_type = request.GET.get("plant_type", "")
+    use = request.GET.get("use", "")
+    tag = request.GET.get("tag", "")
+    bed = bed if bed.isdigit() else ""
+    plant_type = plant_type if plant_type.isdigit() else ""
+    tag = tag if tag.isdigit() else ""
+    if bed:
+        plants = plants.filter(locations__is_current=True, locations__bed_id=bed)
+    if plant_type:
+        plants = plants.filter(plant_type_id=plant_type)
+    if use == "edible":
+        plants = plants.filter(is_edible=True)
+    elif use == "ornamental":
+        plants = plants.filter(is_ornamental=True)
+    else:
+        use = ""
+    if tag:
+        plants = plants.filter(tags__id=tag)
+    plants = plants.distinct()
+
     return render(request, "garden/plants/list.html", {
         "nav": "plants",
         "plants": plants,
         "q": q,
-        "total": Plant.objects.filter(status=PlantStatus.ACTIVE).count(),
+        "result_count": plants.count(),
+        "beds": Bed.objects.filter(archived_at__isnull=True),
+        "plant_types": PlantType.objects.filter(archived_at__isnull=True),
+        "tags": Tag.objects.filter(archived_at__isnull=True),
+        "statuses": [("all", "All statuses"), *PlantStatus.choices],
+        "selected_bed": bed,
+        "selected_plant_type": plant_type,
+        "selected_use": use,
+        "selected_tag": tag,
+        "selected_status": status,
+        "filters_active": any((q, bed, plant_type, use, tag, status != PlantStatus.ACTIVE)),
     })
 
 

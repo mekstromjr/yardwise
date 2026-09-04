@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from garden.models import Bed, Plant, ScheduleKind, Task
+from garden.models import Bed, Plant, PlantLocation, PlantStatus, ScheduleKind, Tag, Task
 
 pytestmark = pytest.mark.django_db
 
@@ -60,6 +60,59 @@ def test_plant_search_filters(user_client):
     Plant.objects.create(common_name="Pear")
     r = user_client.get(reverse("plant-list"), {"q": "blue"})
     assert b"Blueberry" in r.content and b"Pear" not in r.content
+
+
+def test_plant_filters_can_be_combined(user_client):
+    bed = Bed.objects.create(name="Kitchen Garden")
+    other_bed = Bed.objects.create(name="Front Border")
+    edible_tag = Tag.objects.create(name="Preserving")
+    berry_type = Plant._meta.get_field("plant_type").related_model.objects.create(name="Berry")
+
+    blueberry = Plant.objects.create(
+        common_name="Blueberry", plant_type=berry_type, is_edible=True, is_ornamental=True
+    )
+    blueberry.tags.add(edible_tag)
+    PlantLocation.objects.create(plant=blueberry, bed=bed)
+    rose = Plant.objects.create(common_name="Rose", plant_type=berry_type, is_edible=False)
+    rose.tags.add(edible_tag)
+    PlantLocation.objects.create(plant=rose, bed=other_bed)
+
+    r = user_client.get(reverse("plant-list"), {
+        "bed": bed.pk,
+        "plant_type": berry_type.pk,
+        "use": "edible",
+        "tag": edible_tag.pk,
+    })
+
+    assert b"Blueberry" in r.content
+    assert b"Rose" not in r.content
+    assert r.context["result_count"] == 1
+
+
+def test_plant_status_filter_defaults_to_active_and_can_show_archived(user_client):
+    Plant.objects.create(common_name="Living Pear")
+    Plant.objects.create(common_name="Old Pear", status=PlantStatus.ARCHIVED)
+
+    default = user_client.get(reverse("plant-list"))
+    assert b"Living Pear" in default.content and b"Old Pear" not in default.content
+
+    archived = user_client.get(reverse("plant-list"), {"status": PlantStatus.ARCHIVED})
+    assert b"Old Pear" in archived.content and b"Living Pear" not in archived.content
+
+
+def test_plant_filters_ignore_invalid_url_values(user_client):
+    Plant.objects.create(common_name="Pear")
+
+    r = user_client.get(reverse("plant-list"), {
+        "bed": "not-a-number",
+        "plant_type": "broken",
+        "tag": "nope",
+        "use": "invalid",
+        "status": "unknown",
+    })
+
+    assert r.status_code == 200
+    assert b"Pear" in r.content
 
 
 def test_editing_location_creates_history_not_overwrite(user_client):

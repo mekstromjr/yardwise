@@ -224,11 +224,18 @@ def satellite_fetch(request):
         dlon = span_m / (111_320 * max(math.cos(math.radians(lat)), 0.1))
         bbox = f"{lon - dlon},{lat - dlat},{lon + dlon},{lat + dlat}"
         q2 = urllib.parse.urlencode({
-            "bbox": bbox, "bboxSR": "4326", "size": "1600,1600",
+            "bbox": bbox, "bboxSR": "4326", "size": "1280,1280",
             "format": "png", "f": "image",
         })
-        with urllib.request.urlopen(f"{ESRI_EXPORT}?{q2}", timeout=45) as r:
-            image_bytes = r.read()
+        image_bytes = None
+        for attempt in (1, 2):  # the export can be slow; one retry beats a 500
+            try:
+                with urllib.request.urlopen(f"{ESRI_EXPORT}?{q2}", timeout=25) as r:
+                    image_bytes = r.read()
+                break
+            except urllib.error.URLError:
+                if attempt == 2:
+                    raise
     except (urllib.error.URLError, ValueError, KeyError):
         msg = ("Found the address, but the satellite imagery service "
                "didn't answer - try again in a minute.")
@@ -238,7 +245,7 @@ def satellite_fetch(request):
     layer.image.save("satellite.png", ContentFile(image_bytes), save=True)
     if is_first:
         pmap = PropertyMap.get()
-        pmap.width, pmap.height = 1600.0, 1600.0
+        pmap.width, pmap.height = 1280.0, 1280.0
         pmap.save(update_fields=["width", "height"])
     return redirect("map")
 

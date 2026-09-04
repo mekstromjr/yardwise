@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ case.problem_type.name }} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ case.problem_type.get_kind_display }}{% if case.problem_type.seed_alert %} · ⚠ do not let it go to seed{% endif %}{% if case.problem_type.is_beneficial %} · beneficial - treatment likely unnecessary{% endif %}</div>
+  <h1>{{ case.problem_type.name }}</h1>
+  <div class="sub">
+    {% if case.problem_type.scientific_name %}<em>{{ case.problem_type.scientific_name }}</em> · {% endif %}
+    {{ case.where }} · first seen {{ case.first_observed|date:"M j, Y" }}
+    · <span class="chip">{{ case.get_severity_display }}</span>
+    {% if case.confidence != 'unknown' %}<span class="chip">{{ case.get_confidence_display }}</span>{% endif %}
+  </div>
+</header>
+
+<div class="quick-actions" style="margin-bottom:12px">
+  <a class="btn warm" href="{% url 'treatment-add' case.pk %}">Record treatment</a>
+  <form method="post" style="display:contents">{% csrf_token %}
+    {% if case.is_open %}
+      <button class="btn secondary" name="status" value="resolved" type="submit">Mark resolved</button>
+    {% else %}
+      <button class="btn secondary" name="status" value="active" type="submit">Reopen</button>
+    {% endif %}
+  </form>
+</div>
+
+{% if case.symptoms or case.notes %}
+<section class="card">
+  {% if case.symptoms %}<p><strong>Symptoms:</strong> {{ case.symptoms }}</p>{% endif %}
+  {% if case.notes %}<p>{{ case.notes }}</p>{% endif %}
+</section>
+{% endif %}
+
+{% if case.plants.all %}
+<section class="card">
+  <h2>Affected plants</h2>
+  <div style="display:flex; flex-wrap:wrap; gap:6px">
+    {% for plant in case.plants.all %}
+      <a class="chip" href="{% url 'plant-detail' plant.pk %}">{{ plant.common_name }}</a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if case.problem_type.control_notes or case.problem_type.best_control_window %}
+<section class="card">
+  <h2>How to handle it</h2>
+  {% if case.problem_type.best_control_window %}
+    <p><span class="chip">best window: {{ case.problem_type.best_control_window }}</span></p>
+  {% endif %}
+  <p style="white-space:pre-line">{{ case.problem_type.control_notes }}</p>
+</section>
+{% endif %}
+
+{% if case.photos.all %}
+<section class="card">
+  <h2>Photos</h2>
+  <div class="plant-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
+    {% for photo in case.photos.all %}
+      <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy"
+           style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Treatments</h2>
+  {% for t in treatments %}
+    <div class="row">
+      <div class="grow">
+        <div class="title">{{ t.method }}{% if t.product %} · {{ t.product }}{% endif %}</div>
+        <div class="meta">{{ t.get_effectiveness_display }}{% if t.notes %} · {{ t.notes|truncatechars:100 }}{% endif %}</div>
+      </div>
+      <div class="meta">{{ t.treated_on|date:"M j, Y" }}</div>
+    </div>
+  {% empty %}
+    <p class="meta" style="color:var(--ink-soft)">Nothing tried yet.</p>
+  {% endfor %}
+</section>
+
+<form method="post" class="card" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+  {% csrf_token %}
+  <span style="font-weight:700">Status:</span>
+  {% for value, label in statuses %}
+    <button class="btn small {% if case.status != value %}secondary{% endif %}" name="status" value="{{ value }}" type="submit">{{ label }}</button>
+  {% endfor %}
+</form>
+{% endblock %}

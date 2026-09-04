@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Log a problem - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Yard problems</div>
+  <h1>Log a problem</h1>
+  <div class="sub">Weed, pest, or something wrong with a plant - capture it now, refine later.</div>
+</header>
+{% url 'problem-list' as cancel_url %}
+{% include "garden/_simple_form.html" with submit_label="Log it" %}
+{% endblock %}

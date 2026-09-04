@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Record treatment - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ case.problem_type.name }}</div>
+  <h1>Record treatment</h1>
+</header>
+{% url 'problem-detail' case.pk as cancel_url %}
+{% include "garden/_simple_form.html" with submit_label="Record treatment" %}
+{% endblock %}

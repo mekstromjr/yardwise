@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Yard problems - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Yard problems</div>
+  <h1>Weeds, pests & health</h1>
+</header>
+
+<div class="quick-actions" style="margin-bottom:14px">
+  <a class="chip" href="?kind=&show={{ show }}" {% if not kind %}style="outline:2px solid var(--fir)"{% endif %}>All</a>
+  <a class="chip" href="?kind=weed&show={{ show }}" {% if kind == 'weed' %}style="outline:2px solid var(--fir)"{% endif %}>Weeds</a>
+  <a class="chip" href="?kind=pest&show={{ show }}" {% if kind == 'pest' %}style="outline:2px solid var(--fir)"{% endif %}>Pests</a>
+  <a class="chip" href="?kind=disease&show={{ show }}" {% if kind == 'disease' %}style="outline:2px solid var(--fir)"{% endif %}>Health</a>
+  <a class="chip harvest" href="?kind={{ kind }}&show={% if show == 'open' %}all{% else %}open{% endif %}">
+    {% if show == 'open' %}showing open{% else %}showing all{% endif %}</a>
+  <span style="flex:1"></span>
+  <a class="btn warm" href="{% url 'problem-add' %}">Log a problem</a>
+</div>
+
+<section class="card">
+  {% for case in cases %}
+    <a class="row" href="{% url 'problem-detail' case.pk %}">
+      <span class="dot {% if case.severity == 'widespread' %}overdue{% elif case.severity == 'moderate' %}due{% else %}soon{% endif %}"></span>
+      <div class="grow">
+        <div class="title">{{ case.problem_type.name }}
+          <span class="chip" style="margin-left:4px">{{ case.problem_type.get_kind_display }}</span></div>
+        <div class="meta">{{ case.where }} · first seen {{ case.first_observed|date:"M j" }}
+          {% if case.follow_up_on %} · recheck {{ case.follow_up_on|date:"M j" }}{% endif %}</div>
+      </div>
+      <span class="chip {% if case.is_open %}overdue{% endif %}">{{ case.get_status_display }}</span>
+    </a>
+  {% empty %}
+    <div class="empty"><div class="art">☘</div>
+      <h2>{% if show == 'open' %}No open problems{% else %}Nothing recorded yet{% endif %}</h2>
+      <p>A healthy garden - or an unlogged one.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

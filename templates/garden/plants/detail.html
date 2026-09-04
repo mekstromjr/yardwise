@@ -23,6 +23,7 @@
   <a class="btn" href="{% url 'activity-add' plant.pk %}">Record activity</a>
   {% if plant.is_edible %}<a class="btn warm" href="{% url 'harvest-add' plant.pk %}">Record harvest</a>{% endif %}
   <a class="btn secondary" href="{% url 'photo-add' plant.pk %}">Add photo</a>
+  <a class="btn secondary" href="{% url 'problem-add' %}?plant={{ plant.pk }}">Log problem</a>
   <a class="btn secondary" href="{% url 'plant-edit' plant.pk %}">Edit</a>
 </div>
 
@@ -42,6 +43,21 @@
            style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
     {% endfor %}
   </div>
+</section>
+{% endif %}
+
+{% if active_problems %}
+<section class="card">
+  <h2>Active problems</h2>
+  {% for case in active_problems %}
+    <a class="row" href="{% url 'problem-detail' case.pk %}">
+      <span class="dot overdue"></span>
+      <div class="grow">
+        <div class="title">{{ case.problem_type.name }}</div>
+        <div class="meta">{{ case.get_status_display }} · since {{ case.first_observed|date:"M j" }}</div>
+      </div>
+    </a>
+  {% endfor %}
 </section>
 {% endif %}
 

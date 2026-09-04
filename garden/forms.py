@@ -206,3 +206,53 @@ class BedForm(forms.ModelForm):
                 "There's already a bed with this name - pick something distinguishing."
             )
         return name
+
+
+class ProblemCaseForm(forms.ModelForm):
+    """Log a problem: pick an existing type or name a new one in one step."""
+
+    from .models import ProblemKind
+
+    kind = forms.ChoiceField(choices=ProblemKind.choices, label="What kind of problem?")
+    type_name = forms.CharField(
+        label="What is it?",
+        help_text='e.g. "Bindweed", "Aphids", "Powdery mildew" - reuses the record if it exists',
+    )
+    photos_upload = MultiFileField(required=False, label="Photos")
+
+    class Meta:
+        from .models import ProblemCase
+
+        model = ProblemCase
+        fields = [
+            "plants", "bed", "location_note", "first_observed",
+            "severity", "confidence", "symptoms", "notes", "follow_up_on",
+        ]
+        widgets = {
+            "first_observed": forms.DateInput(attrs={"type": "date"}),
+            "follow_up_on": forms.DateInput(attrs={"type": "date"}),
+            "symptoms": forms.Textarea(attrs={"rows": 2}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+            "plants": forms.SelectMultiple(attrs={"size": 5}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["plants"].queryset = Plant.objects.filter(status="active")
+        self.fields["plants"].required = False
+        self.fields["bed"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        self.fields["bed"].required = False
+
+
+class TreatmentForm(forms.ModelForm):
+    photos_upload = MultiFileField(required=False, label="Photos")
+
+    class Meta:
+        from .models import Treatment
+
+        model = Treatment
+        fields = ["treated_on", "method", "product", "effectiveness", "notes"]
+        widgets = {
+            "treated_on": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }

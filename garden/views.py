@@ -51,10 +51,22 @@ def today(request):
         elif (occ.due_on or occ.window_start) <= horizon:
             coming_soon.append(occ)
 
+    from .models import CaseStatus, ProblemCase
+
+    followups = list(
+        ProblemCase.objects.exclude(status=CaseStatus.RESOLVED)
+        .filter(follow_up_on__isnull=False, follow_up_on__lte=horizon)
+        .select_related("problem_type", "bed")
+        .order_by("follow_up_on")
+    )
+    open_problem_count = ProblemCase.objects.exclude(status=CaseStatus.RESOLVED).count()
+
     hour = datetime.datetime.now().hour
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
 
     return render(request, "garden/today.html", {
+        "followups": followups,
+        "open_problem_count": open_problem_count,
         "nav": "today",
         "today": today_,
         "season_label": _season_label(today_),
@@ -153,9 +165,14 @@ def plant_detail(request, pk):
             totals[h.unit.name] = totals.get(h.unit.name, 0) + h.quantity
     season_total = ", ".join(f"{float(q):g} {u}" for u, q in totals.items())
 
+    active_problems = plant.problem_cases.exclude(status="resolved").select_related(
+        "problem_type"
+    )
+
     return render(request, "garden/plants/detail.html", {
         "nav": "plants",
         "plant": plant,
+        "active_problems": active_problems,
         "timeline": timeline,
         "photos": plant.photos.all()[:24],
         "journal_entries": plant.journal_entries.all()[:10],
@@ -401,3 +418,91 @@ def journal_add(request):
 @login_required
 def me(request):
     return render(request, "garden/me.html", {"nav": "me"})
+
+
+@login_required
+def problem_list(request):
+    from .models import CaseStatus, ProblemCase
+
+    kind = request.GET.get("kind", "")
+    show = request.GET.get("show", "open")
+    cases = ProblemCase.objects.select_related("problem_type", "bed").prefetch_related("plants")
+    if kind:
+        cases = cases.filter(problem_type__kind=kind)
+    if show == "open":
+        cases = cases.exclude(status=CaseStatus.RESOLVED)
+    return render(request, "garden/problems/list.html", {
+        "nav": "plants", "cases": cases[:100], "kind": kind, "show": show,
+    })
+
+
+@login_required
+def problem_add(request):
+    from .forms import ProblemCaseForm
+    from .models import ProblemType
+
+    initial = {"first_observed": datetime.date.today()}
+    plant_pk = request.GET.get("plant")
+    form = ProblemCaseForm(request.POST or None, request.FILES or None, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        ptype, _ = ProblemType.objects.get_or_create(
+            kind=form.cleaned_data["kind"],
+            name__iexact=form.cleaned_data["type_name"].strip(),
+            archived_at__isnull=True,
+            defaults={"kind": form.cleaned_data["kind"],
+                      "name": form.cleaned_data["type_name"].strip()},
+        )
+        case = form.save(commit=False)
+        case.problem_type = ptype
+        case.created_by = request.user
+        case.save()
+        form.save_m2m()
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+            case.photos.add(photo)
+        return redirect("problem-detail", pk=case.pk)
+    if plant_pk:
+        form.fields["plants"].initial = [plant_pk]
+    return render(request, "garden/problems/form.html", {"nav": "plants", "form": form})
+
+
+@login_required
+def problem_detail(request, pk):
+    from .models import CaseStatus, ProblemCase
+
+    case = get_object_or_404(
+        ProblemCase.objects.select_related("problem_type", "bed"), pk=pk
+    )
+    if request.method == "POST":  # status change buttons
+        new_status = request.POST.get("status")
+        if new_status in CaseStatus.values:
+            case.status = new_status
+            case.last_observed = datetime.date.today()
+            case.save(update_fields=["status", "last_observed"])
+        return redirect("problem-detail", pk=pk)
+    return render(request, "garden/problems/detail.html", {
+        "nav": "plants", "case": case, "statuses": CaseStatus.choices,
+        "treatments": case.treatments.all(),
+    })
+
+
+@login_required
+def treatment_add(request, pk):
+    from .forms import TreatmentForm
+    from .models import CaseStatus, ProblemCase
+
+    case = get_object_or_404(ProblemCase, pk=pk)
+    form = TreatmentForm(request.POST or None, request.FILES or None,
+                         initial={"treated_on": datetime.date.today()})
+    if request.method == "POST" and form.is_valid():
+        treatment = form.save(commit=False)
+        treatment.case = case
+        treatment.created_by = request.user
+        treatment.save()
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+            treatment.photos.add(photo)
+        if case.status in (CaseStatus.MONITORING, CaseStatus.ACTIVE):
+            case.status = CaseStatus.TREATING
+            case.save(update_fields=["status"])
+        return redirect("problem-detail", pk=case.pk)
+    return render(request, "garden/problems/treatment_form.html",
+                  {"nav": "plants", "case": case, "form": form})

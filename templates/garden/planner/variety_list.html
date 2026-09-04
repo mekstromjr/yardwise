@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Crop varieties - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Garden planner</div>
+  <h1>Crop varieties</h1>
+  <div class="sub">The permanent library - each year's planting borrows from here.</div>
+</header>
+
+<p style="display:flex; gap:10px">
+  <a class="btn" href="{% url 'variety-add' %}">Add a variety</a>
+  <a class="btn secondary" href="{% url 'planner' %}">Back to planner</a>
+</p>
+
+<section class="card">
+  {% for v in varieties %}
+    <a class="row" href="{% url 'variety-edit' v.pk %}">
+      <div class="grow">
+        <div class="title">{{ v }}</div>
+        <div class="meta">
+          {% if v.crop_family %}{{ v.get_crop_family_display }}{% endif %}
+          {% if v.days_to_maturity %}{% if v.crop_family %} · {% endif %}{{ v.days_to_maturity }} days to maturity{% endif %}
+        </div>
+      </div>
+      {% if v.plantings.exists %}<span class="chip">{{ v.plantings.count }} season{{ v.plantings.count|pluralize }}</span>{% endif %}
+    </a>
+  {% empty %}
+    <div class="empty">
+      <div class="art">🌶️</div>
+      <h2>No varieties yet</h2>
+      <p>Add the crops you grow - name, family, and seed-packet timing.</p>
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}

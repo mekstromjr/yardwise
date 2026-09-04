@@ -16,7 +16,7 @@ def map_page(request):
     focus_plant = request.GET.get("plant", "")
     focus_bed = request.GET.get("bed", "")
     return render(request, "garden/map/map.html", {
-        "nav": "plants",
+        "nav": "map",
         "pmap": pmap,
         "layers": MapLayer.objects.filter(archived_at__isnull=True),
         "focus_plant": focus_plant,
@@ -144,3 +144,74 @@ def layer_upload(request):
             pmap.width, pmap.height = float(im.width), float(im.height)
             pmap.save(update_fields=["width", "height"])
     return redirect("map")
+
+
+ESRI_EXPORT = (
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/"
+    "MapServer/export"
+)
+NOMINATIM = "https://nominatim.openstreetmap.org/search"
+
+
+@require_POST
+@login_required
+def satellite_fetch(request):
+    """Fetch satellite imagery for an address as a reference layer.
+
+    Geocodes via OpenStreetMap Nominatim, then pulls an Esri World Imagery
+    export (free with attribution - shown on the map page). Like any layer,
+    it's reference-only: swapping it never moves structured data (R-043).
+    """
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    from django.core.files.base import ContentFile
+
+    address = request.POST.get("address", "").strip()
+    span_m = min(max(int(request.POST.get("span_m") or 150), 40), 1000)
+    if not address:
+        return redirect("map")
+    try:
+        q = urllib.parse.urlencode({"q": address, "format": "json", "limit": 1})
+        req = urllib.request.Request(
+            f"{NOMINATIM}?{q}", headers={"User-Agent": "yardwise-selfhosted/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            hits = json.loads(r.read())
+        if not hits:
+            return _map_error(request, f'No match for "{address}" - try adding city/state.')
+        lat, lon = float(hits[0]["lat"]), float(hits[0]["lon"])
+        # meters -> degrees (lon corrected by latitude)
+        import math
+
+        dlat = span_m / 111_320
+        dlon = span_m / (111_320 * max(math.cos(math.radians(lat)), 0.1))
+        bbox = f"{lon - dlon},{lat - dlat},{lon + dlon},{lat + dlat}"
+        q2 = urllib.parse.urlencode({
+            "bbox": bbox, "bboxSR": "4326", "size": "1600,1600",
+            "format": "png", "f": "image",
+        })
+        with urllib.request.urlopen(f"{ESRI_EXPORT}?{q2}", timeout=45) as r:
+            image_bytes = r.read()
+    except (urllib.error.URLError, ValueError, KeyError):
+        return _map_error(request, "Couldn't fetch satellite imagery - try again shortly.")
+    is_first = not MapLayer.objects.filter(archived_at__isnull=True).exists()
+    layer = MapLayer(name=f"Satellite - {address[:60]}", is_primary=is_first)
+    layer.image.save("satellite.png", ContentFile(image_bytes), save=True)
+    if is_first:
+        pmap = PropertyMap.get()
+        pmap.width, pmap.height = 1600.0, 1600.0
+        pmap.save(update_fields=["width", "height"])
+    return redirect("map")
+
+
+def _map_error(request, msg):
+    pmap = PropertyMap.get()
+    return render(request, "garden/map/map.html", {
+        "nav": "map", "pmap": pmap, "error": msg,
+        "layers": MapLayer.objects.filter(archived_at__isnull=True),
+        "focus_plant": "", "focus_bed": "",
+        "beds": Bed.objects.filter(archived_at__isnull=True),
+        "plants": Plant.objects.filter(status="active"),
+    })

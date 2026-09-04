@@ -203,7 +203,12 @@ def _harvest_line(h) -> str:
 @login_required
 def plant_form(request, pk=None):
     plant = get_object_or_404(Plant, pk=pk) if pk else None
-    form = PlantForm(request.POST or None, request.FILES or None, instance=plant)
+    # AI lookup hand-off: a chosen candidate pre-fills the ADD form (one-shot).
+    prefill = request.session.pop("plant_prefill", None) if not plant else None
+    prefill_note = request.session.pop("plant_prefill_note", "") if prefill else ""
+    form = PlantForm(
+        request.POST or None, request.FILES or None, instance=plant, initial=prefill
+    )
     if request.method == "POST" and form.is_valid():
         plant = form.save(commit=False)
         if not plant.created_by_id:
@@ -217,7 +222,9 @@ def plant_form(request, pk=None):
         if loc:
             form.fields["bed"].initial = loc.bed_id
             form.fields["location_note"].initial = loc.location_note
-    return render(request, "garden/plants/form.html", {"nav": "plants", "form": form})
+    return render(request, "garden/plants/form.html", {
+        "nav": "plants", "form": form, "prefill_note": prefill_note,
+    })
 
 
 def _apply_photo_and_location(plant: Plant, form: PlantForm, request):

@@ -11,6 +11,7 @@
   </div>
 </header>
 
+{% if error %}<div class="card" style="color:var(--terracotta); font-weight:700">{{ error }}</div>{% endif %}
 <div id="map" style="height:62vh; border-radius:var(--radius); border:1px solid var(--line); background:var(--sky-soft)"></div>
 
 <details class="section" style="margin-top:12px">
@@ -31,6 +32,17 @@
       </select>
       <button class="btn small secondary" id="place-start" type="button">Place on map</button>
     </div>
+    <form method="post" action="{% url 'map-satellite' %}"
+          class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      {% csrf_token %}
+      <input type="text" name="address" placeholder="Street address for satellite view" style="flex:1; min-width:220px">
+      <select name="span_m" style="width:auto">
+        <option value="80">Small lot</option>
+        <option value="150" selected>Typical lot</option>
+        <option value="300">Large property</option>
+      </select>
+      <button class="btn small secondary" type="submit">Fetch satellite image</button>
+    </form>
     <form method="post" action="{% url 'map-layer-upload' %}" enctype="multipart/form-data"
           class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
       {% csrf_token %}
@@ -40,6 +52,7 @@
     </form>
   </div>
 </details>
+<p class="meta" style="color:var(--ink-soft); font-size:12px">Satellite imagery © Esri World Imagery; geocoding © OpenStreetMap contributors.</p>
 
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/yardwise-map.js' %}"></script>

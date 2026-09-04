@@ -75,9 +75,24 @@
   {% endif %}
 
   {% if ai_enabled %}
-  <p style="margin:2px 0 12px"><a class="chip" href="{% url 'ai-ask' %}">Ask the garden ✦</a>
-    <a class="chip" href="{% url 'ai-identify' %}">Identify from a photo</a></p>
+  <section class="card">
+    <h2>Ask the garden</h2>
+    <form method="post" action="{% url 'ai-ask' %}" style="display:flex; gap:8px">
+      {% csrf_token %}
+      <input type="text" name="question" style="flex:1"
+             placeholder="What should I do in the yard this weekend?">
+      <button class="btn" type="submit">Ask</button>
+    </form>
+    <p style="margin:8px 0 0"><a class="chip" href="{% url 'ai-identify' %}">Identify a plant, weed, or bug from a photo</a></p>
+  </section>
   {% endif %}
+
+  <nav class="explore-tiles">
+    <a href="{% url 'map' %}"><span class="tile-glyph">❖</span>Map</a>
+    <a href="{% url 'problem-list' %}"><span class="tile-glyph">☘</span>Problems</a>
+    <a href="{% url 'planner' %}"><span class="tile-glyph">☀</span>Planner</a>
+    <a href="{% url 'irrigation-overview' %}"><span class="tile-glyph">≈</span>Irrigation</a>
+  </nav>
 
   {% if open_problem_count %}
   <p style="margin:2px 0 12px">

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Look up a plant - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Add a plant</div>
+  <h1>Look it up</h1>
+  <div class="sub">Type a name - pick the right match and the details fill themselves in.</div>
+</header>
+{% if error %}<div class="card" style="color:var(--terracotta); font-weight:700">{{ error }}
+  <p style="margin-top:8px"><a class="btn secondary" href="{% url 'plant-add' %}">Add by hand</a></p></div>{% endif %}
+<form method="post" class="card">
+  {% csrf_token %}
+  <div class="field" style="display:flex; gap:8px">
+    <input type="text" name="name" value="{{ name }}" style="flex:1"
+           placeholder='e.g. "blueberry", "Japanese maple", "Honeycrisp apple"' required>
+    <button class="btn" type="submit">Search</button>
+  </div>
+</form>
+{% if candidates %}
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="name" value="{{ name }}">
+  {% for c in candidates %}
+    <button class="card" name="choose" value="{{ forloop.counter0 }}" type="submit"
+            style="display:block; width:100%; text-align:left; cursor:pointer; font: inherit">
+      <div class="title" style="font-weight:700">{{ c.common_name }}
+        {% if c.botanical_name %}<em style="color:var(--ink-soft); font-weight:400"> · {{ c.botanical_name }}</em>{% endif %}</div>
+      <div class="meta" style="color:var(--ink-soft)">{{ c.summary }}</div>
+      <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap">
+        {% if c.plant_type %}<span class="chip">{{ c.plant_type }}</span>{% endif %}
+        {% if c.sun %}<span class="chip">{{ c.sun }} sun</span>{% endif %}
+        {% if c.water_needs %}<span class="chip">{{ c.water_needs }} water</span>{% endif %}
+        {% if c.is_edible %}<span class="chip harvest">edible</span>{% endif %}
+        {% if c.toxicity_notes %}<span class="chip overdue">safety note</span>{% endif %}
+      </div>
+    </button>
+  {% endfor %}
+  <p class="meta" style="color:var(--ink-soft)">None of these?
+    <a href="{% url 'plant-add' %}">Add "{{ name }}" by hand</a>.</p>
+</form>
+{% endif %}
+{% endblock %}

@@ -105,3 +105,36 @@ def test_low_confidence_warning_shown(user_client, monkeypatch):
     s = AISuggestion.objects.get()
     r = user_client.get(reverse("ai-suggestion", args=[s.pk]))
     assert b"Low confidence" in r.content and b"Toxic lookalikes" in r.content
+
+
+# --- Plant lookup at creation ------------------------------------------------
+
+
+def test_lookup_shows_candidates_and_prefills_form(user_client, monkeypatch):
+    monkeypatch.setattr(ai, "lookup_plant", lambda *a, **k: [
+        {"common_name": "Highbush Blueberry", "botanical_name": "Vaccinium corymbosum",
+         "summary": "Classic garden blueberry.", "plant_type": "Shrub", "is_edible": True,
+         "sun": "full", "water_needs": "moderate", "mature_height": "5-8 ft",
+         "toxicity_notes": ""},
+        {"common_name": "Lowbush Blueberry", "botanical_name": "Vaccinium angustifolium",
+         "summary": "Wild type, groundcover habit.", "plant_type": "Shrub",
+         "is_edible": True, "sun": "full", "water_needs": "moderate"},
+    ])
+    r = user_client.post(reverse("plant-lookup"), {"name": "blueberry"})
+    assert b"Highbush Blueberry" in r.content and b"Lowbush" in r.content
+    assert Plant.objects.count() == 0  # nothing created by searching
+    # choose the first candidate -> redirected to Add Plant, pre-filled
+    r = user_client.post(reverse("plant-lookup"), {"choose": "0", "name": "blueberry"})
+    assert r.status_code == 302 and r.url.endswith("/plants/add/")
+    r = user_client.get(reverse("plant-add"))
+    assert b"Highbush Blueberry" in r.content and b"Vaccinium corymbosum" in r.content
+    assert b"Details filled from lookup" in r.content
+    # prefill is one-shot: a fresh visit is blank
+    r = user_client.get(reverse("plant-add"))
+    assert b"Highbush Blueberry" not in r.content
+
+
+def test_lookup_hidden_without_key(client, monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    client.force_login(User.objects.create_user("x"))
+    assert client.get(reverse("plant-lookup")).status_code == 404

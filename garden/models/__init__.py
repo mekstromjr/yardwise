@@ -19,6 +19,7 @@ from .problems import (
     Severity,
     Treatment,
 )
+from .property_map import MapLayer, PropertyMap
 from .records import Activity, HarvestEvent, HarvestQuality, JournalEntry
 from .tasks import (
     IntervalAnchor,
@@ -45,7 +46,8 @@ __all__ = [
     "DatePrecision", "Effectiveness", "Foliage", "ProblemCase", "ProblemKind",
     "ProblemType", "Severity", "Treatment",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
-    "JournalEntry", "OccurrenceStatus", "Photo", "PhotoCategory", "Plant",
+    "JournalEntry", "MapLayer", "OccurrenceStatus", "Photo", "PhotoCategory",
+    "Plant", "PropertyMap",
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
     "SeasonWindow", "SunNeeds", "Tag", "Task", "TaskCategory", "TaskOccurrence",
     "WaterNeeds",

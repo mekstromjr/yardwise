@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_settings
+from . import views, views_map, views_settings
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -14,6 +14,11 @@ urlpatterns = [
     path("plants/<int:pk>/photos/add/", views.photo_add, name="photo-add"),
     path("journal/", views.journal_list, name="journal-list"),
     path("journal/add/", views.journal_add, name="journal-add"),
+    path("map/", views_map.map_page, name="map"),
+    path("map/data.json", views_map.map_data, name="map-data"),
+    path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),
+    path("map/plant/<int:pk>/point/", views_map.plant_point, name="map-plant-point"),
+    path("map/layers/upload/", views_map.layer_upload, name="map-layer-upload"),
     path("problems/", views.problem_list, name="problem-list"),
     path("problems/add/", views.problem_add, name="problem-add"),
     path("problems/<int:pk>/", views.problem_detail, name="problem-detail"),

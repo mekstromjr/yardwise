@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{% if component %}Edit component{% else %}Add component{% endif %} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Irrigation</div>
+  <h1>{% if component %}Edit component{% else %}Add a component{% endif %}</h1>
+  <div class="sub">A head, valve, or emitter without a known zone is a valid record -
+    leave the zone blank and assign it later.</div>
+</header>
+
+{% include "garden/_simple_form.html" with submit_label="Save component" cancel_url="/irrigation/" %}
+{% endblock %}

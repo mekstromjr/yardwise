@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_settings
+from . import views, views_irrigation, views_settings
 
 urlpatterns = [
     path("", views.today, name="today"),
@@ -29,4 +29,17 @@ urlpatterns = [
     path("beds/add/", views_settings.bed_form, name="bed-add"),
     path("beds/<int:pk>/", views_settings.bed_form, name="bed-edit"),
     path("beds/<int:pk>/archive/", views_settings.bed_archive, name="bed-archive"),
+    path("irrigation/", views_irrigation.irrigation_overview, name="irrigation-overview"),
+    path("irrigation/zones/add/", views_irrigation.zone_form, name="irrigation-zone-add"),
+    path("irrigation/zones/<int:pk>/", views_irrigation.zone_detail,
+         name="irrigation-zone-detail"),
+    path("irrigation/zones/<int:pk>/edit/", views_irrigation.zone_form,
+         name="irrigation-zone-edit"),
+    path("irrigation/zones/<int:pk>/archive/", views_irrigation.zone_archive,
+         name="irrigation-zone-archive"),
+    path("irrigation/components/add/", views_irrigation.component_form,
+         name="irrigation-component-add"),
+    path("irrigation/components/<int:pk>/edit/", views_irrigation.component_form,
+         name="irrigation-component-edit"),
+    path("irrigation/events/add/", views_irrigation.event_add, name="irrigation-event-add"),
 ]

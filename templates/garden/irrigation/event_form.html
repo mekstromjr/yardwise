@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Log irrigation event - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">Irrigation</div>
+  <h1>Log an event</h1>
+  <div class="sub">Repairs, observations, schedule changes, startup, winterization -
+    attach it to a zone, a component, or both.</div>
+</header>
+
+{% include "garden/_simple_form.html" with submit_label="Log it" cancel_url="/irrigation/" %}
+{% endblock %}

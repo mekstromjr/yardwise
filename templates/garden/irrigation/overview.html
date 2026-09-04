@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Irrigation - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">The yard</div>
+  <h1>Sprinklers &amp; irrigation</h1>
+  <div class="sub">Figure the system out one zone at a time - Unknown is a perfectly
+    good answer until you've walked it.</div>
+</header>
+
+<p style="display:flex; gap:10px; flex-wrap:wrap">
+  <a class="btn" href="{% url 'irrigation-zone-add' %}">Add zone</a>
+  <a class="btn secondary" href="{% url 'irrigation-component-add' %}">Add component</a>
+  <a class="btn secondary" href="{% url 'irrigation-event-add' %}">Log event</a>
+</p>
+
+{% for group in groups %}
+<section class="card">
+  <h2>{{ group.label }}
+    <span class="chip{% if group.status == 'unknown' %} overdue{% endif %}">
+      {{ group.zones|length }}</span></h2>
+  {% for zone in group.zones %}
+    <a class="row" href="{% url 'irrigation-zone-detail' zone.pk %}">
+      <div class="grow">
+        <div class="title">{{ zone.name }}</div>
+        <div class="meta">{{ zone.code }}
+          {% if zone.controller_station %} · station {{ zone.controller_station }}{% endif %}
+          · {{ zone.get_zone_type_display }}</div>
+      </div>
+      <span class="chip{% if zone.status == 'needs_repair' %} overdue{% endif %}">
+        {{ zone.get_status_display }}</span>
+    </a>
+  {% endfor %}
+</section>
+{% empty %}
+<section class="card">
+  <div class="empty">
+    <div class="art">💧</div>
+    <h2>No zones yet</h2>
+    <p>Start with what you can see: add a zone per controller station, even as
+      "Unknown Zone 1", and refine it as you learn what it waters.</p>
+  </div>
+</section>
+{% endfor %}
+
+{% if unassigned %}
+<section class="card">
+  <h2>Components without a zone <span class="chip">{{ unassigned|length }}</span></h2>
+  <p class="meta" style="color:var(--ink-soft)">Found in the yard, zone not yet known -
+    that's fine. Assign them as zones get mapped.</p>
+  {% for component in unassigned %}
+    <a class="row" href="{% url 'irrigation-component-edit' component.pk %}">
+      <div class="grow">
+        <div class="title">{{ component.get_component_type_display }}</div>
+        <div class="meta">
+          {% if component.bed %}{{ component.bed.name }}{% endif %}
+          {% if component.bed and component.location_note %} · {% endif %}
+          {{ component.location_note }}</div>
+      </div>
+      <span class="chip{% if component.condition in 'leaking clogged broken' %} overdue{% endif %}">
+        {{ component.get_condition_display }}</span>
+    </a>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

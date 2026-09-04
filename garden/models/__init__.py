@@ -1,4 +1,15 @@
 from .beds import Bed
+from .irrigation import (
+    ComponentCondition,
+    ComponentType,
+    EventType,
+    InvestigationStatus,
+    IrrigationComponent,
+    IrrigationEvent,
+    IrrigationZone,
+    ZoneStatus,
+    ZoneType,
+)
 from .photos import Photo, Season
 from .plants import (
     DatePrecision,
@@ -37,4 +48,7 @@ __all__ = [
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
     "SeasonWindow", "SunNeeds", "Tag", "Task", "TaskCategory", "TaskOccurrence",
     "WaterNeeds",
+    # irrigation
+    "ComponentCondition", "ComponentType", "EventType", "InvestigationStatus",
+    "IrrigationComponent", "IrrigationEvent", "IrrigationZone", "ZoneStatus", "ZoneType",
 ]

@@ -52,7 +52,8 @@ def map_data(request):
         })
     layers = [
         {"id": la.pk, "name": la.name, "url": la.image.url, "primary": la.is_primary,
-         "visible": la.visible, "opacity": la.opacity}
+         "visible": la.visible, "opacity": la.opacity,
+         "w": la.natural_width, "h": la.natural_height}
         for la in MapLayer.objects.filter(archived_at__isnull=True)
     ]
     return JsonResponse({
@@ -151,13 +152,32 @@ def layer_upload(request):
     image = request.FILES["image"]
     name = request.POST.get("name") or image.name
     layer = MapLayer.objects.create(name=name, image=image)
-    if _promote_layer(layer):
-        layer.image.open('rb')
-        with PILImage.open(layer.image) as im:
-            pmap = PropertyMap.get()
-            pmap.width, pmap.height = float(im.width), float(im.height)
-            pmap.save(update_fields=["width", "height"])
+    layer.image.open("rb")
+    with PILImage.open(layer.image) as im:
+        layer.natural_width, layer.natural_height = float(im.width), float(im.height)
+    layer.save(update_fields=["natural_width", "natural_height"])
+    _promote_layer(layer)
+    _maybe_resize_space(layer)
     return redirect("map")
+
+
+def _map_has_geometry() -> bool:
+    from .models import PlantLocation
+
+    return (
+        Bed.objects.filter(archived_at__isnull=True, boundary__isnull=False).exists()
+        or PlantLocation.objects.filter(is_current=True, point_x__isnull=False).exists()
+    )
+
+
+def _maybe_resize_space(layer) -> None:
+    """Size the coordinate space to the new primary image whenever nothing is
+    traced or placed yet - with no geometry there is nothing to move (R-043).
+    Once beds/points exist the space is frozen and images letterbox instead."""
+    if layer.natural_width and layer.natural_height and not _map_has_geometry():
+        pmap = PropertyMap.get()
+        pmap.width, pmap.height = layer.natural_width, layer.natural_height
+        pmap.save(update_fields=["width", "height"])
 
 
 ESRI_EXPORT = (
@@ -254,12 +274,11 @@ def satellite_fetch(request):
         msg = ("Found the address, but the satellite imagery service "
                "didn't answer - try again in a minute.")
         return _map_error(request, msg)
-    layer = MapLayer(name=f"Satellite - {address[:60]}")
+    layer = MapLayer(name=f"Satellite - {address[:60]}",
+                     natural_width=1280.0, natural_height=1280.0)
     layer.image.save("satellite.png", ContentFile(image_bytes), save=True)
-    if _promote_layer(layer):
-        pmap = PropertyMap.get()
-        pmap.width, pmap.height = 1280.0, 1280.0
-        pmap.save(update_fields=["width", "height"])
+    _promote_layer(layer)
+    _maybe_resize_space(layer)
     return redirect("map")
 
 

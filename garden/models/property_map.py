@@ -84,6 +84,11 @@ class MapLayer(models.Model):
     is_primary = models.BooleanField(default=False)
     visible = models.BooleanField(default=True)
     opacity = models.FloatField(default=1.0)
+    # Natural pixel size, recorded at save. The renderer fits the image into
+    # the coordinate space PRESERVING this ratio (letterboxed) instead of
+    # stretching it to the space's bounds.
+    natural_width = models.FloatField(null=True, blank=True)
+    natural_height = models.FloatField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     archived_at = models.DateTimeField(null=True, blank=True)
 

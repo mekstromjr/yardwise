@@ -31,11 +31,18 @@ function yardwiseMap(opts) {
     const bounds = [toLL(0, data.height), toLL(data.width, 0)];
     map.setMaxBounds(L.latLngBounds(bounds).pad(0.2));
 
-    // reference imagery
+    // reference imagery - fit into the space preserving each image's natural
+    // aspect ratio (centered letterbox), never stretch
     data.layers.forEach(layer => {
-      if (layer.visible) {
-        L.imageOverlay(layer.url, bounds, { opacity: layer.opacity }).addTo(map);
+      if (!layer.visible) return;
+      let lb = bounds;
+      if (layer.w && layer.h) {
+        const scale = Math.min(data.width / layer.w, data.height / layer.h);
+        const w = layer.w * scale, h = layer.h * scale;
+        const x0 = (data.width - w) / 2, y0 = (data.height - h) / 2;
+        lb = [toLL(x0, y0 + h), toLL(x0 + w, y0)];
       }
+      L.imageOverlay(layer.url, lb, { opacity: layer.opacity }).addTo(map);
     });
     // grid overlay
     if (data.grid.visible) {

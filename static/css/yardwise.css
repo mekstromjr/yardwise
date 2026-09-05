@@ -471,3 +471,24 @@ nav.primary a.user-entry .user-name {
 .danger-zone .inner { display: grid; gap: 10px; }
 .danger-zone form { margin: 0; }
 .danger-zone .danger-copy { color: var(--terracotta); margin-top: 8px; }
+
+/* --- plant photo library ------------------------------------------------ */
+.photo-library { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.plant-photo-tile { display: grid; gap: 6px; }
+.plant-photo-tile img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+.plant-photo-tile form { margin: 0; }
+.photo-delete-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--terracotta);
+  font: 700 12px var(--body);
+  padding: 5px;
+  cursor: pointer;
+}
+.photo-delete-button:hover { text-decoration: underline; }

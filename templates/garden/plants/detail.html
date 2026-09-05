@@ -39,10 +39,17 @@
 {% if photos %}
 <section class="card">
   <h2>Photos</h2>
-  <div class="plant-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
+  <div class="plant-grid photo-library">
     {% for photo in photos %}
-      <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy" title="{{ photo.taken_on|default:'' }} {{ photo.caption }}"
-           style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm)">
+      <div class="plant-photo-tile">
+        <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy"
+             title="{{ photo.taken_on|default:'' }} {{ photo.caption }}">
+        <form method="post" action="{% url 'plant-photo-remove' plant.pk photo.pk %}"
+              onsubmit="return confirm('Remove this photo from {{ plant|escapejs }}? The plant will not be deleted.')">
+          {% csrf_token %}
+          <button class="photo-delete-button" type="submit">Delete photo</button>
+        </form>
+      </div>
     {% endfor %}
   </div>
 </section>

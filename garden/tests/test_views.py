@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from garden.models import Bed, Plant, PlantLocation, PlantStatus, ScheduleKind, Tag, Task
+from garden.models import Bed, Photo, Plant, PlantLocation, PlantStatus, ScheduleKind, Tag, Task
 
 pytestmark = pytest.mark.django_db
 
@@ -346,6 +346,50 @@ def test_photo_upload_sets_primary_and_links(user_client):
     assert plant.primary_photo is not None
     assert plant.photos.count() == 2
     assert Plant.objects.count() == 1
+
+
+def test_individual_photo_can_be_removed_without_deleting_plant(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    first = Photo.objects.create(file=_png())
+    second = Photo.objects.create(file=_png())
+    plant.photos.add(first, second)
+    plant.primary_photo = first
+    plant.save(update_fields=["primary_photo"])
+
+    response = user_client.post(
+        reverse("plant-photo-remove", args=[plant.pk, first.pk])
+    )
+
+    assert response.status_code == 302
+    plant.refresh_from_db()
+    assert Plant.objects.filter(pk=plant.pk).exists()
+    assert list(plant.photos.all()) == [second]
+    assert plant.primary_photo == second
+
+
+def test_remove_photo_is_post_only_and_requires_plant_link(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    linked = Photo.objects.create(file=_png())
+    unrelated = Photo.objects.create(file=_png())
+    plant.photos.add(linked)
+
+    assert user_client.get(
+        reverse("plant-photo-remove", args=[plant.pk, linked.pk])
+    ).status_code == 405
+    assert user_client.post(
+        reverse("plant-photo-remove", args=[plant.pk, unrelated.pk])
+    ).status_code == 404
+
+
+def test_plant_photo_delete_control_has_confirmation(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    photo = Photo.objects.create(file=_png())
+    plant.photos.add(photo)
+
+    response = user_client.get(reverse("plant-detail", args=[plant.pk]))
+
+    assert b"Delete photo" in response.content
+    assert b"The plant will not be deleted" in response.content
 
 
 def test_additional_photo_page_uses_existing_plant_picker(user_client):

@@ -66,17 +66,23 @@ def test_list_pages_and_today_show_only_own_garden(client, alice, bob):
 
 def test_cross_garden_detail_urls_return_404(client, alice, bob):
     _populate(client, alice, "alice")
-    from garden.models import Plant, Task
+    from garden.models import Photo, Plant, Task
 
     plant = Plant.objects.get(common_name="alice plant")
+    photo = Photo.objects.create(garden=plant.garden, uploaded_by=alice, file="photo.jpg")
+    plant.photos.add(photo)
     occ = Task.objects.get(title="alice task").occurrences.get()
 
     client.force_login(bob)
     assert client.get(reverse("plant-detail", args=[plant.pk])).status_code == 404
     assert client.post(reverse("plant-archive", args=[plant.pk])).status_code == 404
     assert client.post(reverse("plant-delete", args=[plant.pk])).status_code == 404
+    assert client.post(
+        reverse("plant-photo-remove", args=[plant.pk, photo.pk])
+    ).status_code == 404
     plant.refresh_from_db()
     assert plant.status == "active"
+    assert plant.photos.filter(pk=photo.pk).exists()
     assert client.post(
         reverse("occurrence-action", args=[occ.pk, "complete"])
     ).status_code == 404

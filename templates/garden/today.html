@@ -77,7 +77,7 @@
   {% if ai_enabled %}
   <section class="card">
     <h2>Ask the garden</h2>
-    <form method="post" action="{% url 'ai-ask' %}" style="display:flex; gap:8px">
+    <form method="post" action="{% url 'assistant' %}" style="display:flex; gap:8px">
       {% csrf_token %}
       <input type="text" name="question" style="flex:1"
              placeholder="What should I do in the yard this weekend?">
@@ -88,6 +88,7 @@
   {% endif %}
 
   <nav class="explore-tiles">
+    {% if ai_enabled %}<a href="{% url 'assistant' %}"><span class="tile-glyph">✦</span>Assistant</a>{% endif %}
     <a href="{% url 'map' %}"><span class="tile-glyph">❖</span>Map</a>
     <a href="{% url 'problem-list' %}"><span class="tile-glyph">☘</span>Problems</a>
     <a href="{% url 'planner' %}"><span class="tile-glyph">☀</span>Planner</a>

@@ -27,14 +27,28 @@ def model() -> str:
     return os.environ.get("YARDWISE_AI_MODEL", "google/gemini-2.5-flash")
 
 
+def web_search_enabled() -> bool:
+    """Ground answers with live web search (OpenRouter's web plugin). On by
+    default so advice and safety claims cite current sources instead of
+    leaning on training data alone; set YARDWISE_AI_WEB=0 to disable (each
+    searched request adds a small cost on the OpenRouter key)."""
+    return os.environ.get("YARDWISE_AI_WEB", "1").lower() not in ("0", "false", "no")
+
+
 class AIError(Exception):
     """Raised for transport/parse failures; views translate to a calm message."""
 
 
-def complete(messages: list[dict], json_mode: bool = False) -> str:
+def complete(messages: list[dict], json_mode: bool = False,
+             web: bool = False) -> tuple[str, list[dict]]:
+    """Returns (content, sources). Sources are OpenRouter url_citation
+    annotations - [{"title": ..., "url": ...}] - present when the web plugin
+    actually searched; empty otherwise."""
     payload = {"model": model(), "messages": messages}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
+    if web and web_search_enabled():
+        payload["plugins"] = [{"id": "web"}]
     req = urllib.request.Request(
         API_URL,
         data=json.dumps(payload).encode(),
@@ -46,7 +60,14 @@ def complete(messages: list[dict], json_mode: bool = False) -> str:
     try:
         with urllib.request.urlopen(req, timeout=90) as r:
             body = json.loads(r.read())
-        return body["choices"][0]["message"]["content"]
+        message = body["choices"][0]["message"]
+        sources = []
+        for ann in message.get("annotations") or []:
+            cite = ann.get("url_citation") or {}
+            if cite.get("url"):
+                sources.append({"title": cite.get("title") or cite["url"],
+                                "url": cite["url"]})
+        return message["content"], sources
     except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError) as exc:
         raise AIError(str(exc)) from exc
 
@@ -78,9 +99,9 @@ def identify(photo_file, question: str, region: str, context: str) -> dict:
         {"type": "text", "text": f"{question}\n\nGarden context: {context}"},
         _image_part(photo_file),
     ]
-    raw = complete(
+    raw, sources = complete(
         [{"role": "system", "content": system}, {"role": "user", "content": user_content}],
-        json_mode=True,
+        json_mode=True, web=True,
     )
     try:
         out = json.loads(raw)
@@ -88,6 +109,7 @@ def identify(photo_file, question: str, region: str, context: str) -> dict:
         raise AIError(f"unparseable identification: {raw[:200]}") from exc
     out.setdefault("kind", "unsure")
     out.setdefault("confidence", "low")
+    out["sources"] = sources
     return out
 
 
@@ -123,10 +145,10 @@ def enrich(plant, region: str) -> dict:
         desc += f" '{plant.cultivar}'"
     if plant.botanical_name:
         desc += f" ({plant.botanical_name})"
-    raw = complete(
+    raw, sources = complete(
         [{"role": "system", "content": system},
          {"role": "user", "content": f"The plant: {desc}"}],
-        json_mode=True,
+        json_mode=True, web=True,
     )
     try:
         proposed = json.loads(raw)
@@ -140,10 +162,12 @@ def enrich(plant, region: str) -> dict:
         if field in CHOICE_FIELDS and value not in CHOICE_FIELDS[field]:
             continue
         clean[field] = value.strip()
+    if clean and sources:
+        clean["_sources"] = sources
     return clean
 
 
-def ask(question: str, context: str, region: str) -> str:
+def ask(question: str, context: str, region: str) -> tuple[str, list[dict]]:
     system = (
         "You are the garden notebook's assistant for a home gardener in "
         f"{region or 'the Pacific Northwest, USA'}. Answer from the provided garden "
@@ -153,7 +177,7 @@ def ask(question: str, context: str, region: str) -> str:
     return complete([
         {"role": "system", "content": system},
         {"role": "user", "content": f"My garden records:\n{context}\n\nQuestion: {question}"},
-    ])
+    ], web=True)
 
 
 def lookup_plant(name: str, region: str) -> list[dict]:
@@ -174,10 +198,10 @@ def lookup_plant(name: str, region: str) -> list[dict]:
         "string if none known). Omit any field you are unsure of. If the name is "
         "ambiguous (e.g. 'daisy'), make the candidates meaningfully different."
     )
-    raw = complete(
+    raw, _sources = complete(
         [{"role": "system", "content": system},
          {"role": "user", "content": f"The plant name they typed: {name}"}],
-        json_mode=True,
+        json_mode=True, web=True,
     )
     try:
         candidates = json.loads(raw).get("candidates", [])

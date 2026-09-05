@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Assistant - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">✦ The assistant</div>
+  <h1>Ask the garden</h1>
+  <div class="sub">It knows your plants, problems, and tasks - and checks the web before giving advice.</div>
+</header>
+
+<form method="post" class="card">
+  {% csrf_token %}
+  <div class="field">
+    <textarea name="question" rows="2"
+      placeholder="What should I do in the yard this weekend? Is laurel toxic to dogs?">{{ question }}</textarea>
+  </div>
+  <button class="btn" type="submit">Ask</button>
+</form>
+
+{% if answer %}
+<section class="card">
+  <p style="white-space:pre-line">{{ answer }}</p>
+  {% include "garden/ai/_sources.html" %}
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Identify from a photo</h2>
+  <p class="meta" style="color:var(--ink-soft)">A mystery plant, a suspicious weed, a bug,
+    or a sad-looking leaf - snap it and get a named answer with next steps.</p>
+  <p><a class="btn warm" href="{% url 'ai-identify' %}">Open the camera</a></p>
+</section>
+
+{% if saved %}
+<section class="card">
+  <h2>Saved for later</h2>
+  {% for s in saved %}
+    <a class="row" href="{% url 'ai-suggestion' s.pk %}">
+      <div class="grow">
+        <div class="title">{{ s.response.name|default:"Unidentified" }}</div>
+        <div class="meta">{{ s.created_at|date:"M j" }} · {{ s.response.confidence }} confidence</div>
+      </div>
+      <span class="chip">decide</span>
+    </a>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if history %}
+<section class="card">
+  <h2>Recent questions</h2>
+  {% for h in history %}
+    <details class="row" style="display:block">
+      <summary style="cursor:pointer; font-weight:700">{{ h.question|truncatechars:90 }}
+        <span class="meta" style="font-weight:400">· {{ h.created_at|date:"M j" }}</span></summary>
+      <p style="white-space:pre-line; margin:6px 0 2px">{{ h.response.answer }}</p>
+    </details>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

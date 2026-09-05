@@ -52,6 +52,7 @@ from .tasks import (
     Task,
     TaskOccurrence,
 )
+from .tenancy import Garden
 from .vocab import (
     ActivityType,
     BedType,
@@ -67,6 +68,7 @@ __all__ = [
     "Activity", "ActivityType", "AISuggestion", "Bed", "BedType", "CaseStatus", "Confidence",
     "DatePrecision", "Effectiveness", "Foliage", "ProblemCase", "ProblemKind",
     "ProblemType", "Severity", "Treatment",
+    "Garden",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
     "JournalEntry", "MapLayer", "OccurrenceStatus", "Photo", "PhotoCategory",
     "Plant", "PropertyMap",

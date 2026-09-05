@@ -18,6 +18,9 @@ class Activity(models.Model):
     bed = models.ForeignKey(
         Bed, null=True, blank=True, on_delete=models.CASCADE, related_name="activities"
     )
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     activity_type = models.ForeignKey(ActivityType, on_delete=models.PROTECT)
     performed_on = models.DateField()
     note = models.TextField(blank=True)
@@ -41,6 +44,9 @@ class Activity(models.Model):
 
 
 class JournalEntry(models.Model):
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     occurred_at = models.DateTimeField()
     text = models.TextField()
     photos = models.ManyToManyField(Photo, blank=True, related_name="journal_entries")
@@ -72,6 +78,9 @@ class HarvestEvent(models.Model):
     so corrections can't desync a rollup.
     """
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     plant = models.ForeignKey(Plant, on_delete=models.CASCADE, related_name="harvests")
     seasonal_planting = models.ForeignKey(
         "garden.SeasonalPlanting",

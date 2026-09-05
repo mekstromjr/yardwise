@@ -8,30 +8,33 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .models import Bed, MapLayer, Plant, PlantLocation, PropertyMap
+from .tenancy import garden_for
 
 
 @login_required
 def map_page(request):
-    pmap = PropertyMap.get()
+    g = garden_for(request)
+    pmap = PropertyMap.get(g)
     focus_plant = request.GET.get("plant", "")
     focus_bed = request.GET.get("bed", "")
     return render(request, "garden/map/map.html", {
         "nav": "map",
         "pmap": pmap,
-        "layers": MapLayer.objects.filter(archived_at__isnull=True),
+        "layers": MapLayer.objects.filter(garden=g, archived_at__isnull=True),
         "focus_plant": focus_plant,
         "focus_bed": focus_bed,
-        "beds": Bed.objects.filter(archived_at__isnull=True),
-        "plants": Plant.objects.filter(status="active"),
+        "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
+        "plants": Plant.objects.filter(garden=g, status="active"),
     })
 
 
 @login_required
 def map_data(request):
     """Everything the map JS renders, in one payload."""
-    pmap = PropertyMap.get()
+    g = garden_for(request)
+    pmap = PropertyMap.get(g)
     beds = []
-    for bed in Bed.objects.filter(archived_at__isnull=True):
+    for bed in Bed.objects.filter(garden=g, archived_at__isnull=True):
         beds.append({
             "id": bed.pk, "code": bed.code, "name": bed.name,
             "boundary": bed.boundary,
@@ -40,7 +43,7 @@ def map_data(request):
     points = []
     for loc in (
         PlantLocation.objects.filter(is_current=True, point_x__isnull=False,
-                                     plant__status="active")
+                                     plant__garden=g, plant__status="active")
         .select_related("plant", "bed")
     ):
         points.append({
@@ -54,7 +57,7 @@ def map_data(request):
         {"id": la.pk, "name": la.name, "url": la.image.url, "primary": la.is_primary,
          "visible": la.visible, "opacity": la.opacity,
          "w": la.natural_width, "h": la.natural_height}
-        for la in MapLayer.objects.filter(archived_at__isnull=True)
+        for la in MapLayer.objects.filter(garden=g, archived_at__isnull=True)
     ]
     return JsonResponse({
         "width": pmap.width, "height": pmap.height,
@@ -68,7 +71,8 @@ def map_data(request):
 @login_required
 def bed_boundary(request, pk):
     """Save a traced bed polygon: JSON body {"boundary": [[x,y], ...] | null}."""
-    bed = get_object_or_404(Bed, pk=pk, archived_at__isnull=True)
+    g = garden_for(request)
+    bed = get_object_or_404(Bed, pk=pk, garden=g, archived_at__isnull=True)
     payload = json.loads(request.body)
     boundary = payload.get("boundary")
     if boundary is not None and (
@@ -78,7 +82,8 @@ def bed_boundary(request, pk):
         return JsonResponse({"error": "boundary must be [[x,y],...] with 3+ points"}, status=400)
     bed.boundary = boundary
     bed.save(update_fields=["boundary"])
-    return JsonResponse({"ok": True, "cells": PropertyMap.get().cells_for_polygon(boundary or [])})
+    cells = PropertyMap.get(g).cells_for_polygon(boundary or [])
+    return JsonResponse({"ok": True, "cells": cells})
 
 
 @require_POST
@@ -90,25 +95,27 @@ def plant_point(request, pk):
     lands inside a traced bed, the location's bed is set from geometry
     (R-023: map selection resolves the containing bed automatically).
     """
-    plant = get_object_or_404(Plant, pk=pk)
+    g = garden_for(request)
+    plant = get_object_or_404(Plant, pk=pk, garden=g)
     payload = json.loads(request.body)
     x, y = float(payload["x"]), float(payload["y"])
     loc = plant.current_locations.first()
     if loc is None:
         loc = PlantLocation.objects.create(plant=plant)
     loc.point_x, loc.point_y = x, y
-    containing = _bed_containing(x, y)
+    containing = _bed_containing(g, x, y)
     if containing and loc.bed_id != containing.pk:
         loc.bed = containing
     loc.save()
-    pmap = PropertyMap.get()
+    pmap = PropertyMap.get(g)
     return JsonResponse({"ok": True, "cell": pmap.cell_for(x, y),
                          "bed": loc.bed.name if loc.bed else ""})
 
 
-def _bed_containing(x: float, y: float):
+def _bed_containing(garden, x: float, y: float):
     """Point-in-polygon (ray casting) over traced beds."""
-    for bed in Bed.objects.filter(archived_at__isnull=True, boundary__isnull=False):
+    for bed in Bed.objects.filter(garden=garden, archived_at__isnull=True,
+                                  boundary__isnull=False):
         if _point_in_polygon(x, y, bed.boundary):
             return bed
     return None
@@ -127,12 +134,14 @@ def _point_in_polygon(x: float, y: float, poly: list) -> bool:
     return inside
 
 
-def _promote_layer(layer) -> bool:
+def _promote_layer(garden, layer) -> bool:
     """Most-recent-wins: the layer the user just added becomes the primary
     view; older layers stay as hidden reference toggles (PDD: keep prior
     imagery; replacing it never moves structured data, R-043). Returns
     whether this is the property's first layer (which sizes the map)."""
-    others = MapLayer.objects.filter(archived_at__isnull=True).exclude(pk=layer.pk)
+    others = MapLayer.objects.filter(
+        garden=garden, archived_at__isnull=True
+    ).exclude(pk=layer.pk)
     was_first = not others.exists()
     others.update(is_primary=False, visible=False)
     if not (layer.is_primary and layer.visible):
@@ -149,33 +158,34 @@ def layer_upload(request):
     the first one ever also sizes the coordinate space from its pixels."""
     from PIL import Image as PILImage
 
+    g = garden_for(request)
     image = request.FILES["image"]
     name = request.POST.get("name") or image.name
-    layer = MapLayer.objects.create(name=name, image=image)
+    layer = MapLayer.objects.create(name=name, image=image, garden=g)
     layer.image.open("rb")
     with PILImage.open(layer.image) as im:
         layer.natural_width, layer.natural_height = float(im.width), float(im.height)
     layer.save(update_fields=["natural_width", "natural_height"])
-    _promote_layer(layer)
-    _maybe_resize_space(layer)
+    _promote_layer(g, layer)
+    _maybe_resize_space(g, layer)
     return redirect("map")
 
 
-def _map_has_geometry() -> bool:
-    from .models import PlantLocation
-
+def _map_has_geometry(garden) -> bool:
     return (
-        Bed.objects.filter(archived_at__isnull=True, boundary__isnull=False).exists()
-        or PlantLocation.objects.filter(is_current=True, point_x__isnull=False).exists()
+        Bed.objects.filter(garden=garden, archived_at__isnull=True,
+                           boundary__isnull=False).exists()
+        or PlantLocation.objects.filter(is_current=True, point_x__isnull=False,
+                                        plant__garden=garden).exists()
     )
 
 
-def _maybe_resize_space(layer) -> None:
+def _maybe_resize_space(garden, layer) -> None:
     """Size the coordinate space to the new primary image whenever nothing is
     traced or placed yet - with no geometry there is nothing to move (R-043).
     Once beds/points exist the space is frozen and images letterbox instead."""
-    if layer.natural_width and layer.natural_height and not _map_has_geometry():
-        pmap = PropertyMap.get()
+    if layer.natural_width and layer.natural_height and not _map_has_geometry(garden):
+        pmap = PropertyMap.get(garden)
         pmap.width, pmap.height = layer.natural_width, layer.natural_height
         pmap.save(update_fields=["width", "height"])
 
@@ -238,6 +248,7 @@ def satellite_fetch(request):
 
     from django.core.files.base import ContentFile
 
+    g = garden_for(request)
     address = request.POST.get("address", "").strip()
     span_m = min(max(int(request.POST.get("span_m") or 150), 40), 1000)
     if not address:
@@ -274,20 +285,21 @@ def satellite_fetch(request):
         msg = ("Found the address, but the satellite imagery service "
                "didn't answer - try again in a minute.")
         return _map_error(request, msg)
-    layer = MapLayer(name=f"Satellite - {address[:60]}",
+    layer = MapLayer(name=f"Satellite - {address[:60]}", garden=g,
                      natural_width=1280.0, natural_height=1280.0)
     layer.image.save("satellite.png", ContentFile(image_bytes), save=True)
-    _promote_layer(layer)
-    _maybe_resize_space(layer)
+    _promote_layer(g, layer)
+    _maybe_resize_space(g, layer)
     return redirect("map")
 
 
 def _map_error(request, msg):
-    pmap = PropertyMap.get()
+    g = garden_for(request)
+    pmap = PropertyMap.get(g)
     return render(request, "garden/map/map.html", {
         "nav": "map", "pmap": pmap, "error": msg,
-        "layers": MapLayer.objects.filter(archived_at__isnull=True),
+        "layers": MapLayer.objects.filter(garden=g, archived_at__isnull=True),
         "focus_plant": "", "focus_bed": "",
-        "beds": Bed.objects.filter(archived_at__isnull=True),
-        "plants": Plant.objects.filter(status="active"),
+        "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
+        "plants": Plant.objects.filter(garden=g, status="active"),
     })

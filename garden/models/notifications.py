@@ -24,6 +24,9 @@ class NotificationKind(models.TextChoices):
 
 
 class Notification(models.Model):
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     kind = models.CharField(max_length=16, choices=NotificationKind.choices)
     title = models.CharField(max_length=200)
     body = models.CharField(max_length=300, blank=True)
@@ -49,12 +52,16 @@ class Notification(models.Model):
         return self.read_at is None and self.dismissed_at is None
 
     @classmethod
-    def visible_unread(cls, today: datetime.date | None = None):
-        """Unread, not dismissed, not currently snoozed."""
+    def visible_unread(cls, today: datetime.date | None = None, garden=None):
+        """Unread, not dismissed, not currently snoozed. Pass ``garden`` to
+        scope to one garden's rows (views always do); ``None`` is unscoped."""
         today = today or datetime.date.today()
-        return cls.objects.filter(read_at__isnull=True, dismissed_at__isnull=True).filter(
+        qs = cls.objects.filter(read_at__isnull=True, dismissed_at__isnull=True).filter(
             models.Q(snoozed_until__isnull=True) | models.Q(snoozed_until__lte=today)
         )
+        if garden is not None:
+            qs = qs.filter(garden=garden)
+        return qs
 
 
 class NotificationPrefs(models.Model):

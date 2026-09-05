@@ -22,6 +22,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
+    Garden,
     Notification,
     NotificationKind,
     NotificationPrefs,
@@ -33,12 +34,23 @@ OCC_PREFIX = "occ-"
 
 
 def refresh(user=None, today: datetime.date | None = None) -> None:
+    """Materialize notifications. With a user, everything is scoped to that
+    user's garden; with ``user=None`` (system-wide refresh, used by tests and
+    shell maintenance) all gardens are processed and each notification
+    inherits its source row's garden."""
     today = today or datetime.date.today()
     enabled, lead_days = _prefs(user)
+    garden = (
+        Garden.for_user(user)
+        if user is not None and getattr(user, "is_authenticated", False)
+        else None
+    )
 
     pending = TaskOccurrence.objects.filter(
         status=OccurrenceStatus.PENDING, task__archived_at__isnull=True
     ).select_related("task")
+    if garden is not None:
+        pending = pending.filter(task__garden=garden)
 
     pending_ids = set()
     for occ in pending:
@@ -46,11 +58,14 @@ def refresh(user=None, today: datetime.date | None = None) -> None:
         if enabled:
             _materialize_for_occurrence(occ, user, today, lead_days)
 
-    _retire_stale(pending_ids)
+    _retire_stale(pending_ids, garden)
     # Elapsed snoozes resurface: clearing the date returns rows to the unread set.
-    Notification.objects.filter(snoozed_until__lte=today).update(snoozed_until=None)
+    snoozed = Notification.objects.filter(snoozed_until__lte=today)
+    if garden is not None:
+        snoozed = snoozed.filter(garden=garden)
+    snoozed.update(snoozed_until=None)
     if enabled:
-        _materialize_problem_followups(user, today)
+        _materialize_problem_followups(user, today, garden)
 
 
 def _prefs(user) -> tuple[bool, int]:
@@ -74,6 +89,7 @@ def _materialize_for_occurrence(occ, user, today, lead_days) -> None:
                 "body": f"Overdue since {due:%b %-d}",
                 "link_path": link,
                 "user": user if user and user.is_authenticated else None,
+                "garden": occ.task.garden,
             },
         )
         if created:  # the due reminder is superseded, not left dangling
@@ -89,17 +105,21 @@ def _materialize_for_occurrence(occ, user, today, lead_days) -> None:
                 "body": f"Due {due:%b %-d}" if due != today else "Due today",
                 "link_path": link,
                 "user": user if user and user.is_authenticated else None,
+                "garden": occ.task.garden,
             },
         )
 
 
-def _retire_stale(pending_ids: set[int]) -> None:
+def _retire_stale(pending_ids: set[int], garden=None) -> None:
     """Mark occurrence-backed notifications read once their occurrence is done."""
     now = timezone.now()
     stale = []
-    for notif in Notification.objects.filter(
+    candidates = Notification.objects.filter(
         read_at__isnull=True, dedupe_key__startswith=OCC_PREFIX
-    ).only("id", "dedupe_key"):
+    )
+    if garden is not None:  # scoped refresh must not retire other gardens' rows
+        candidates = candidates.filter(garden=garden)
+    for notif in candidates.only("id", "dedupe_key"):
         try:
             occ_id = int(notif.dedupe_key.split("-")[1])
         except (IndexError, ValueError):
@@ -110,15 +130,18 @@ def _retire_stale(pending_ids: set[int]) -> None:
         Notification.objects.filter(id__in=stale).update(read_at=now)
 
 
-def _materialize_problem_followups(user, today) -> None:
+def _materialize_problem_followups(user, today, garden=None) -> None:
     """ProblemCase is a later module; generate follow-ups only if it exists."""
     try:
         from .models import ProblemCase  # noqa: F401
     except ImportError:
         return
-    for case in ProblemCase.objects.exclude(status="resolved").filter(
+    cases = ProblemCase.objects.exclude(status="resolved").filter(
         follow_up_on__isnull=False, follow_up_on__lte=today
-    ).select_related("problem_type"):
+    )
+    if garden is not None:
+        cases = cases.filter(garden=garden)
+    for case in cases.select_related("problem_type"):
         Notification.objects.get_or_create(
             dedupe_key=f"problem-{case.pk}-followup-{case.follow_up_on.isoformat()}",
             defaults={
@@ -127,5 +150,6 @@ def _materialize_problem_followups(user, today) -> None:
                 "body": case.where,
                 "link_path": f"/problems/{case.pk}/",
                 "user": user if user and user.is_authenticated else None,
+                "garden": case.garden,
             },
         )

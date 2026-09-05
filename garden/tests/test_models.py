@@ -49,6 +49,11 @@ def test_bed_codes_are_sequential_and_immutable_across_rename():
 
 
 def test_active_bed_names_unique_but_archived_frees_the_name():
+    # Names are unique per garden; a user's presence gives both rows the same
+    # garden (tests/conftest.py stamps it, mirroring the backfill rule).
+    from django.contrib.auth.models import User
+
+    User.objects.create_user("michele", password="x")
     Bed.objects.create(name="Herb Bed")
     with pytest.raises(IntegrityError):
         Bed.objects.create(name="Herb Bed")

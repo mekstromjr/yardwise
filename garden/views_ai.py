@@ -16,6 +16,7 @@ from .models import (
     SuggestionKind,
     SuggestionStatus,
 )
+from .tenancy import garden_for
 
 
 def _require_ai():
@@ -23,22 +24,24 @@ def _require_ai():
         raise Http404
 
 
-def _garden_context() -> str:
-    """Compact JSON snapshot the model can reason over."""
+def _garden_context(garden) -> str:
+    """Compact JSON snapshot of ONE garden the model can reason over."""
     from .models import CaseStatus, OccurrenceStatus, ProblemCase, TaskOccurrence
 
     today = datetime.date.today()
     plants = list(
-        Plant.objects.filter(status="active").values_list("common_name", "cultivar")[:200]
+        Plant.objects.filter(garden=garden, status="active")
+        .values_list("common_name", "cultivar")[:200]
     )
     problems = list(
-        ProblemCase.objects.exclude(status=CaseStatus.RESOLVED)
+        ProblemCase.objects.filter(garden=garden).exclude(status=CaseStatus.RESOLVED)
         .values_list("problem_type__name", "status")[:50]
     )
     tasks = [
         {"title": o.task.title, "when": str(o.effective_due)}
-        for o in TaskOccurrence.objects.filter(status=OccurrenceStatus.PENDING)
-        .select_related("task")[:50]
+        for o in TaskOccurrence.objects.filter(
+            status=OccurrenceStatus.PENDING, task__garden=garden
+        ).select_related("task")[:50]
     ]
     return json.dumps({
         "date": str(today),
@@ -51,18 +54,21 @@ def _garden_context() -> str:
 @login_required
 def identify(request):
     _require_ai()
+    g = garden_for(request)
     if request.method == "POST" and request.FILES.get("photo"):
-        photo = Photo.objects.create(file=request.FILES["photo"], uploaded_by=request.user)
+        photo = Photo.objects.create(
+            file=request.FILES["photo"], uploaded_by=request.user, garden=g
+        )
         question = request.POST.get("question") or "What is this?"
         try:
-            result = ai.identify(photo.file, question, region="", context=_garden_context())
+            result = ai.identify(photo.file, question, region="", context=_garden_context(g))
         except ai.AIError:
             msg = "The assistant couldn't be reached - try again in a minute."
             return render(request, "garden/ai/identify.html",
                           {"nav": "plants", "error": msg})
         suggestion = AISuggestion.objects.create(
             kind=SuggestionKind.IDENTIFY, question=question, response=result,
-            photo=photo, created_by=request.user,
+            photo=photo, created_by=request.user, garden=g,
         )
         return redirect("ai-suggestion", pk=suggestion.pk)
     return render(request, "garden/ai/identify.html", {"nav": "plants"})
@@ -70,7 +76,10 @@ def identify(request):
 
 @login_required
 def suggestion_detail(request, pk):
-    suggestion = get_object_or_404(AISuggestion, pk=pk, kind=SuggestionKind.IDENTIFY)
+    g = garden_for(request)
+    suggestion = get_object_or_404(
+        AISuggestion, pk=pk, kind=SuggestionKind.IDENTIFY, garden=g
+    )
     result = suggestion.response
     if request.method == "POST":
         action = request.POST.get("action")
@@ -79,14 +88,15 @@ def suggestion_detail(request, pk):
 
             ptype, _ = ProblemType.objects.get_or_create(
                 kind=result["kind"], name__iexact=result.get("name", "Unknown"),
-                archived_at__isnull=True,
+                archived_at__isnull=True, garden=g,
                 defaults={"kind": result["kind"], "name": result.get("name", "Unknown"),
                           "scientific_name": result.get("scientific_name", ""),
-                          "control_notes": result.get("action_advice", "")},
+                          "control_notes": result.get("action_advice", ""),
+                          "garden": g},
             )
             case = ProblemCase.objects.create(
                 problem_type=ptype, first_observed=datetime.date.today(),
-                notes=result.get("summary", ""), created_by=request.user,
+                notes=result.get("summary", ""), created_by=request.user, garden=g,
             )
             if suggestion.photo:
                 case.photos.add(suggestion.photo)
@@ -97,7 +107,7 @@ def suggestion_detail(request, pk):
             plant = Plant.objects.create(
                 common_name=result.get("name", "Unknown plant"),
                 botanical_name=result.get("scientific_name", ""),
-                notes=result.get("summary", ""), created_by=request.user,
+                notes=result.get("summary", ""), created_by=request.user, garden=g,
             )
             if suggestion.photo:
                 plant.photos.add(suggestion.photo)
@@ -119,7 +129,8 @@ def suggestion_detail(request, pk):
 @login_required
 def plant_enrich(request, pk):
     _require_ai()
-    plant = get_object_or_404(Plant, pk=pk)
+    g = garden_for(request)
+    plant = get_object_or_404(Plant, pk=pk, garden=g)
     if request.method == "POST" and request.POST.get("apply"):
         suggestion = get_object_or_404(
             AISuggestion, pk=request.POST["suggestion"], plant=plant,
@@ -147,7 +158,7 @@ def plant_enrich(request, pk):
             })
         suggestion = AISuggestion.objects.create(
             kind=SuggestionKind.ENRICH, response=proposed, plant=plant,
-            created_by=request.user,
+            created_by=request.user, garden=g,
         )
         sources = proposed.pop("_sources", []) if isinstance(proposed, dict) else []
         fields = [(f, Plant._meta.get_field(f).verbose_name, v) for f, v in proposed.items()]
@@ -163,22 +174,23 @@ def assistant(request):
     """The assistant's home: ask (with sources), identify entry, question
     history, and saved-for-later identifications - all one screen."""
     _require_ai()
+    g = garden_for(request)
     answer, question, sources = None, "", []
     if request.method == "POST":
         question = request.POST.get("question", "").strip()
         if question:
             try:
-                answer, sources = ai.ask(question, _garden_context(), region="")
+                answer, sources = ai.ask(question, _garden_context(g), region="")
             except ai.AIError:
                 answer = "The assistant couldn't be reached - try again in a minute."
             AISuggestion.objects.create(
                 kind=SuggestionKind.QUESTION, question=question,
                 response={"answer": answer, "sources": sources},
-                created_by=request.user, status=SuggestionStatus.ACCEPTED,
+                created_by=request.user, status=SuggestionStatus.ACCEPTED, garden=g,
             )
-    history = AISuggestion.objects.filter(kind=SuggestionKind.QUESTION)[:10]
+    history = AISuggestion.objects.filter(garden=g, kind=SuggestionKind.QUESTION)[:10]
     saved = AISuggestion.objects.filter(
-        kind=SuggestionKind.IDENTIFY, status=SuggestionStatus.SAVED
+        garden=g, kind=SuggestionKind.IDENTIFY, status=SuggestionStatus.SAVED
     )[:10]
     return render(request, "garden/ai/assistant.html", {
         "nav": "assistant", "question": question, "answer": answer,

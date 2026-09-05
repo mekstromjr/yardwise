@@ -77,6 +77,9 @@ class IrrigationZone(models.Model):
     """One irrigation zone. `code` is the permanent ID history hangs off;
     `name` is renamable once the zone's purpose is understood (PDD 8.2)."""
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     code = models.CharField(max_length=10, unique=True, editable=False)
     name = models.CharField(max_length=100)
     controller_station = models.PositiveSmallIntegerField(
@@ -138,6 +141,9 @@ class IrrigationComponent(models.Model):
         on_delete=models.SET_NULL,
         related_name="components",
     )
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     component_type = models.CharField(max_length=10, choices=ComponentType.choices)
     bed = models.ForeignKey(
         Bed,
@@ -187,6 +193,9 @@ class IrrigationEvent(models.Model):
         blank=True,
         on_delete=models.CASCADE,
         related_name="events",
+    )
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
     )
     event_type = models.CharField(max_length=15, choices=EventType.choices)
     happened_on = models.DateField()

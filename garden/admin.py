@@ -30,6 +30,7 @@ class TaskOccurrenceAdmin(admin.ModelAdmin):
 
 
 for model in (
+    models.Garden,
     models.PlantLocation,
     models.Photo,
     models.Activity,

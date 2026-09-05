@@ -25,6 +25,9 @@ def photo_upload_path(instance, filename: str) -> str:
 
 
 class Photo(models.Model):
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     file = models.ImageField(upload_to=photo_upload_path)
     # Derivatives generated on upload (issue #11) so a growing library stays
     # fast; templates fall back to `file` when absent.

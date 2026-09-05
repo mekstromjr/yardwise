@@ -24,6 +24,9 @@ class SuggestionStatus(models.TextChoices):
 
 
 class AISuggestion(models.Model):
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     kind = models.CharField(max_length=8, choices=SuggestionKind.choices)
     question = models.TextField(blank=True)
     response = models.JSONField()

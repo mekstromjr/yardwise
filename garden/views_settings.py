@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from . import models
 from .forms import BedForm
+from .tenancy import garden_for
 
 VOCABULARIES = {
     # slug -> (model, singular label, plural heading)
@@ -96,7 +97,9 @@ def window_action(request):
 
 @login_required
 def bed_list(request):
-    beds = models.Bed.objects.filter(archived_at__isnull=True).select_related("bed_type")
+    beds = models.Bed.objects.filter(
+        garden=garden_for(request), archived_at__isnull=True
+    ).select_related("bed_type")
     for bed in beds:
         bed.plant_count = bed.plant_locations.filter(
             is_current=True, plant__status="active"
@@ -106,10 +109,13 @@ def bed_list(request):
 
 @login_required
 def bed_form(request, pk=None):
-    bed = get_object_or_404(models.Bed, pk=pk) if pk else None
-    form = BedForm(request.POST or None, instance=bed)
+    g = garden_for(request)
+    bed = get_object_or_404(models.Bed, pk=pk, garden=g) if pk else None
+    form = BedForm(request.POST or None, instance=bed, garden=g)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        bed = form.save(commit=False)
+        bed.garden = g
+        bed.save()
         return redirect("bed-list")
     plants = (
         bed.plant_locations.filter(is_current=True, plant__status="active").select_related("plant")
@@ -122,7 +128,7 @@ def bed_form(request, pk=None):
 
 @login_required
 def bed_archive(request, pk):
-    bed = get_object_or_404(models.Bed, pk=pk)
+    bed = get_object_or_404(models.Bed, pk=pk, garden=garden_for(request))
     if request.method == "POST":
         current = bed.plant_locations.filter(is_current=True, plant__status="active").count()
         if current == 0:  # refuse to archive a bed that still holds plants

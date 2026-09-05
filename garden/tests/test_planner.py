@@ -229,7 +229,10 @@ def test_climate_form_edits_the_singleton(user_client):
     })
     assert r.status_code == 302
     assert ClimateProfile.objects.count() == 1
-    assert ClimateProfile.load().last_frost_date(2027) == datetime.date(2027, 4, 15)
+    from garden.models import Garden
+
+    garden = Garden.objects.get(owner__username="michele")
+    assert ClimateProfile.load(garden).last_frost_date(2027) == datetime.date(2027, 4, 15)
 
 
 def test_planting_form_renders_and_saves(user_client, climate, tomato):

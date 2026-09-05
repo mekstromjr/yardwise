@@ -42,6 +42,9 @@ class Variety(models.Model):
     user may simply not know yet.
     """
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     name = models.CharField(max_length=100)
     botanical_name = models.CharField(max_length=150, blank=True)
     cultivar = models.CharField(max_length=100, blank=True)
@@ -73,7 +76,7 @@ class Variety(models.Model):
 
 
 class ClimateProfile(models.Model):
-    """The property climate profile (PDD 6.5) - one shared row, user-edited.
+    """The property climate profile (PDD 6.5) - one row per garden, user-edited.
 
     Frost dates are stored as month/day (they recur yearly); helpers resolve
     them to concrete dates for a growing year. All fields nullable: an unset
@@ -81,6 +84,9 @@ class ClimateProfile(models.Model):
     inventing them.
     """
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     hardiness_zone = models.CharField(max_length=10, blank=True)
     avg_last_frost_month = models.PositiveSmallIntegerField(null=True, blank=True)
     avg_last_frost_day = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -92,8 +98,11 @@ class ClimateProfile(models.Model):
         return f"Climate profile (zone {self.hardiness_zone or 'unset'})"
 
     @classmethod
-    def load(cls) -> "ClimateProfile":
-        profile, _created = cls.objects.get_or_create(pk=1)
+    def load(cls, garden=None) -> "ClimateProfile":
+        """The (lazily created) profile for one garden. ``None`` addresses the
+        legacy unassigned row - kept so model-level code paths that predate
+        gardens keep working; views always pass the request user's garden."""
+        profile, _created = cls.objects.get_or_create(garden=garden)
         return profile
 
     def last_frost_date(self, year: int) -> datetime.date | None:
@@ -135,6 +144,9 @@ class SeasonalPlanting(models.Model):
     available for next year and history rows are kept for comparison.
     """
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     variety = models.ForeignKey(Variety, on_delete=models.PROTECT, related_name="plantings")
     year = models.PositiveSmallIntegerField()
     bed = models.ForeignKey(
@@ -172,7 +184,7 @@ class SeasonalPlanting(models.Model):
         Anything whose inputs are missing (no climate profile, no offset on
         the variety) is omitted - an honest partial schedule beats a fake one.
         """
-        return self.compute_milestones(ClimateProfile.load())
+        return self.compute_milestones(ClimateProfile.load(self.garden))
 
     def compute_milestones(self, climate: ClimateProfile) -> list[tuple[str, datetime.date]]:
         lf = climate.last_frost_date(self.year)

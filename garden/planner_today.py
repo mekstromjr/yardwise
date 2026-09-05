@@ -18,7 +18,9 @@ class MilestoneItem(NamedTuple):
     planting: SeasonalPlanting
 
 
-def due_milestones(on: datetime.date | None = None, horizon_days: int = 14) -> list[MilestoneItem]:
+def due_milestones(
+    on: datetime.date | None = None, horizon_days: int = 14, garden=None
+) -> list[MilestoneItem]:
     """Milestones due now or within `horizon_days`, oldest first.
 
     Recently-passed milestones (within the horizon looking back) stay visible
@@ -28,11 +30,11 @@ def due_milestones(on: datetime.date | None = None, horizon_days: int = 14) -> l
     on = on or datetime.date.today()
     window_start = on - datetime.timedelta(days=horizon_days)
     window_end = on + datetime.timedelta(days=horizon_days)
-    climate = ClimateProfile.load()
+    climate = ClimateProfile.load(garden)
 
     plantings = (
         SeasonalPlanting.objects.filter(
-            year__in=(on.year, on.year + 1), archived_at__isnull=True
+            garden=garden, year__in=(on.year, on.year + 1), archived_at__isnull=True
         )
         .exclude(status=PlantingStatus.FINISHED)
         .select_related("variety", "bed")

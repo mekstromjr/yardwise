@@ -45,6 +45,9 @@ class PlantStatus(models.TextChoices):
 
 class Plant(models.Model):
     # --- identity & care (future Variety candidates; all optional but the name) ---
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     common_name = models.CharField(max_length=200)  # the ONLY required field (AC-124)
     botanical_name = models.CharField(max_length=200, blank=True)
     cultivar = models.CharField(max_length=200, blank=True)

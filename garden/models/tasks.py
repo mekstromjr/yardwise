@@ -44,6 +44,9 @@ class Priority(models.TextChoices):
 
 
 class Task(models.Model):
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     title = models.CharField(max_length=200)
     notes = models.TextField(blank=True)
     category = models.ForeignKey(TaskCategory, null=True, blank=True, on_delete=models.PROTECT)

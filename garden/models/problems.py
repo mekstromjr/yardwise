@@ -24,6 +24,9 @@ class ProblemKind(models.TextChoices):
 class ProblemType(models.Model):
     """Reference record: what this weed/pest/disease IS and how to handle it."""
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     kind = models.CharField(max_length=7, choices=ProblemKind.choices)
     name = models.CharField(max_length=150)
     scientific_name = models.CharField(max_length=150, blank=True)
@@ -54,7 +57,7 @@ class ProblemType(models.Model):
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["kind", "name"],
+                fields=["garden", "kind", "name"],
                 condition=models.Q(archived_at__isnull=True),
                 name="unique_active_problem_type",
             ),
@@ -99,6 +102,9 @@ class ProblemCase(models.Model):
         Bed, null=True, blank=True, on_delete=models.PROTECT, related_name="problem_cases"
     )
     location_note = models.CharField(max_length=200, blank=True)
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     first_observed = models.DateField()
     last_observed = models.DateField(null=True, blank=True)
     severity = models.CharField(

@@ -61,7 +61,11 @@ def identify(request):
         )
         question = request.POST.get("question") or "What is this?"
         try:
-            result = ai.identify(photo.file, question, region="", context=_garden_context(g))
+            # send the web-size derivative, not the original: a 48MP JPEG is ~10MB,
+            # base64 + JSON copies triple that in memory and the model doesn't
+            # benefit from the extra pixels
+            image = photo.file_web or photo.file
+            result = ai.identify(image, question, region="", context=_garden_context(g))
         except ai.AIError:
             msg = "The assistant couldn't be reached - try again in a minute."
             return render(request, "garden/ai/identify.html",

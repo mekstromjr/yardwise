@@ -230,8 +230,14 @@ def test_geocode_prefers_census_result(monkeypatch):
 
 def test_media_served_to_logged_in_users_only(user_client, client, settings, tmp_path):
     settings.MEDIA_ROOT = str(tmp_path)
-    (tmp_path / "photos").mkdir()
-    (tmp_path / "photos" / "x.png").write_bytes(b"\x89PNG fake")
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    }
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    default_storage.save("photos/x.png", ContentFile(b"\x89PNG fake"))
     r = user_client.get("/media/photos/x.png")
     assert r.status_code == 200
     from django.test import Client
@@ -322,3 +328,22 @@ def test_map_data_includes_layer_dims(user_client):
     _upload_png(user_client, "wide", 30, 20)
     data = user_client.get(reverse("map-data")).json()
     assert data["layers"][0]["w"] == 30.0 and data["layers"][0]["h"] == 20.0
+
+
+def test_serve_media_streams_from_storage(user_client, settings, tmp_path):
+    # storage-agnostic serve: write via the storage API (not the filesystem
+    # path) and stream back through /media/
+    settings.MEDIA_ROOT = str(tmp_path)
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    }
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    default_storage.save("photos/streamed.png", ContentFile(b"\x89PNG streamed"))
+    r = user_client.get("/media/photos/streamed.png")
+    assert r.status_code == 200
+    assert r["Content-Type"] == "image/png"
+    assert b"".join(r.streaming_content) == b"\x89PNG streamed"
+    assert user_client.get("/media/photos/missing.png").status_code == 404

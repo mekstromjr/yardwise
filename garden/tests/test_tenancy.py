@@ -80,6 +80,9 @@ def test_cross_garden_detail_urls_return_404(client, alice, bob):
     assert client.post(
         reverse("plant-photo-remove", args=[plant.pk, photo.pk])
     ).status_code == 404
+    assert client.post(
+        reverse("plant-photo-make-primary", args=[plant.pk, photo.pk])
+    ).status_code == 404
     plant.refresh_from_db()
     assert plant.status == "active"
     assert plant.photos.filter(pk=photo.pk).exists()

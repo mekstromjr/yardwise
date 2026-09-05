@@ -130,6 +130,27 @@ def test_map_page_renders_with_focus(user_client):
     assert r.status_code == 200
     assert b"yardwise-map.js" in r.content
     assert b"Outline a new bed" in r.content
+    assert b"Drag a photo here" in r.content
+    assert b"choose from Photos or files" in r.content
+
+
+def test_map_photo_upload_without_image_shows_friendly_error(user_client):
+    response = user_client.post(reverse("map-layer-upload"), {"name": "Nothing"})
+
+    assert response.status_code == 200
+    assert b"Choose a photo to use for the map" in response.content
+
+
+def test_map_photo_upload_rejects_unreadable_format(user_client):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    response = user_client.post(
+        reverse("map-layer-upload"),
+        {"image": SimpleUploadedFile("not-a-photo.heic", b"not really an image", "image/heic")},
+    )
+
+    assert response.status_code == 200
+    assert b"export it as JPEG or PNG" in response.content
 
 
 def test_satellite_fetch_geocodes_and_creates_layer(user_client, monkeypatch, settings, tmp_path):

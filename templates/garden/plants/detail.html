@@ -44,11 +44,21 @@
       <div class="plant-photo-tile">
         <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy"
              title="{{ photo.taken_on|default:'' }} {{ photo.caption }}">
-        <form method="post" action="{% url 'plant-photo-remove' plant.pk photo.pk %}"
-              onsubmit="return confirm('Remove this photo from {{ plant|escapejs }}? The plant will not be deleted.')">
-          {% csrf_token %}
-          <button class="photo-delete-button" type="submit">Delete photo</button>
-        </form>
+        <div class="plant-photo-actions">
+          {% if plant.primary_photo_id == photo.pk %}
+            <span class="main-photo-label">Main photo</span>
+          {% else %}
+            <form method="post" action="{% url 'plant-photo-make-primary' plant.pk photo.pk %}">
+              {% csrf_token %}
+              <button class="photo-main-button" type="submit">Make main photo</button>
+            </form>
+          {% endif %}
+          <form method="post" action="{% url 'plant-photo-remove' plant.pk photo.pk %}"
+                onsubmit="return confirm('Remove this photo from {{ plant|escapejs }}? The plant will not be deleted.')">
+            {% csrf_token %}
+            <button class="photo-delete-button" type="submit">Delete photo</button>
+          </form>
+        </div>
       </div>
     {% endfor %}
   </div>

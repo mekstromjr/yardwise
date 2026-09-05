@@ -482,13 +482,24 @@ nav.primary a.user-entry .user-name {
   border-radius: var(--radius-sm);
 }
 .plant-photo-tile form { margin: 0; }
-.photo-delete-button {
+.plant-photo-actions { display: grid; gap: 2px; text-align: center; }
+.photo-delete-button,
+.photo-main-button {
   width: 100%;
   border: 0;
   background: transparent;
-  color: var(--terracotta);
   font: 700 12px var(--body);
   padding: 5px;
   cursor: pointer;
 }
+.photo-main-button { color: var(--fir); }
+.photo-delete-button { color: var(--terracotta); }
+.photo-main-button:hover,
 .photo-delete-button:hover { text-decoration: underline; }
+.main-photo-label {
+  color: var(--fir);
+  background: var(--sky-soft);
+  border-radius: 999px;
+  font: 700 12px var(--body);
+  padding: 5px;
+}

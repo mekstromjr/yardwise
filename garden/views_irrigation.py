@@ -20,6 +20,7 @@ from .models import (
     IrrigationEvent,
     IrrigationZone,
 )
+from .tenancy import garden_for
 from .views import _save_photos
 
 # --- Forms ------------------------------------------------------------------
@@ -43,9 +44,12 @@ class IrrigationZoneForm(forms.ModelForm):
             "last_verified_on": "Last physically verified",
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["beds"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        beds = Bed.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            beds = beds.filter(garden=garden)
+        self.fields["beds"].queryset = beds
         self.fields["beds"].required = False
 
 
@@ -61,10 +65,15 @@ class IrrigationComponentForm(forms.ModelForm):
         widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
         labels = {"zone": "Zone (leave blank if unknown)"}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["zone"].queryset = IrrigationZone.objects.filter(archived_at__isnull=True)
-        self.fields["bed"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        zones = IrrigationZone.objects.filter(archived_at__isnull=True)
+        beds = Bed.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            zones = zones.filter(garden=garden)
+            beds = beds.filter(garden=garden)
+        self.fields["zone"].queryset = zones
+        self.fields["bed"].queryset = beds
 
 
 class IrrigationEventForm(forms.ModelForm):
@@ -78,12 +87,15 @@ class IrrigationEventForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["zone"].queryset = IrrigationZone.objects.filter(archived_at__isnull=True)
-        self.fields["component"].queryset = IrrigationComponent.objects.filter(
-            archived_at__isnull=True
-        )
+        zones = IrrigationZone.objects.filter(archived_at__isnull=True)
+        components = IrrigationComponent.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            zones = zones.filter(garden=garden)
+            components = components.filter(garden=garden)
+        self.fields["zone"].queryset = zones
+        self.fields["component"].queryset = components
 
     def clean(self):
         data = super().clean()
@@ -106,7 +118,10 @@ _STATUS_ORDER = [
 
 @login_required
 def irrigation_overview(request):
-    zones = IrrigationZone.objects.filter(archived_at__isnull=True).prefetch_related("beds")
+    g = garden_for(request)
+    zones = IrrigationZone.objects.filter(
+        garden=g, archived_at__isnull=True
+    ).prefetch_related("beds")
     by_status = {status: [] for status in _STATUS_ORDER}
     for zone in zones:
         by_status[zone.investigation_status].append(zone)
@@ -120,7 +135,7 @@ def irrigation_overview(request):
         if by_status[status]
     ]
     unassigned = IrrigationComponent.objects.filter(
-        archived_at__isnull=True, zone__isnull=True
+        garden=g, archived_at__isnull=True, zone__isnull=True
     ).select_related("bed")
     return render(request, "garden/irrigation/overview.html", {
         "nav": "irrigation",
@@ -132,7 +147,7 @@ def irrigation_overview(request):
 
 @login_required
 def zone_detail(request, pk):
-    zone = get_object_or_404(IrrigationZone, pk=pk)
+    zone = get_object_or_404(IrrigationZone, pk=pk, garden=garden_for(request))
     events = (
         IrrigationEvent.objects.filter(Q(zone=zone) | Q(component__zone=zone))
         .select_related("component")
@@ -149,10 +164,14 @@ def zone_detail(request, pk):
 
 @login_required
 def zone_form(request, pk=None):
-    zone = get_object_or_404(IrrigationZone, pk=pk) if pk else None
-    form = IrrigationZoneForm(request.POST or None, instance=zone)
+    g = garden_for(request)
+    zone = get_object_or_404(IrrigationZone, pk=pk, garden=g) if pk else None
+    form = IrrigationZoneForm(request.POST or None, instance=zone, garden=g)
     if request.method == "POST" and form.is_valid():
-        zone = form.save()
+        zone = form.save(commit=False)
+        zone.garden = g
+        zone.save()
+        form.save_m2m()
         return redirect("irrigation-zone-detail", pk=zone.pk)
     return render(request, "garden/irrigation/zone_form.html",
                   {"nav": "irrigation", "zone": zone, "form": form})
@@ -160,7 +179,7 @@ def zone_form(request, pk=None):
 
 @login_required
 def zone_archive(request, pk):
-    zone = get_object_or_404(IrrigationZone, pk=pk)
+    zone = get_object_or_404(IrrigationZone, pk=pk, garden=garden_for(request))
     if request.method == "POST":
         zone.archived_at = tz.now()
         zone.save(update_fields=["archived_at"])
@@ -169,12 +188,16 @@ def zone_archive(request, pk):
 
 @login_required
 def component_form(request, pk=None):
-    component = get_object_or_404(IrrigationComponent, pk=pk) if pk else None
+    g = garden_for(request)
+    component = get_object_or_404(IrrigationComponent, pk=pk, garden=g) if pk else None
     form = IrrigationComponentForm(request.POST or None, request.FILES or None,
-                                   instance=component)
+                                   instance=component, garden=g)
     if request.method == "POST" and form.is_valid():
-        component = form.save()
-        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+        component = form.save(commit=False)
+        component.garden = g
+        component.save()
+        form.save_m2m()
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, garden=g):
             component.photos.add(photo)
         if component.zone_id:
             return redirect("irrigation-zone-detail", pk=component.zone_id)
@@ -196,12 +219,15 @@ def event_add(request):
     component_id = request.GET.get("component", "")
     if component_id.isdigit():
         initial["component"] = component_id
-    form = IrrigationEventForm(request.POST or None, request.FILES or None, initial=initial)
+    g = garden_for(request)
+    form = IrrigationEventForm(request.POST or None, request.FILES or None, initial=initial,
+                               garden=g)
     if request.method == "POST" and form.is_valid():
         event = form.save(commit=False)
         event.created_by = request.user
+        event.garden = g
         event.save()
-        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, garden=g):
             event.photos.add(photo)
         if event.zone_id:
             return redirect("irrigation-zone-detail", pk=event.zone_id)

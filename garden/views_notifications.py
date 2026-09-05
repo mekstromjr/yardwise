@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from . import notify
 from .models import Notification, NotificationPrefs
+from .tenancy import garden_for
 
 SNOOZE_DAYS = 3
 RECENT_READ_LIMIT = 20
@@ -38,13 +39,14 @@ def _day_groups(notifications):
 
 @login_required
 def center(request):
+    g = garden_for(request)
     notify.refresh(user=request.user)
     today = datetime.date.today()
-    unread = list(Notification.visible_unread(today))
+    unread = list(Notification.visible_unread(today, garden=g))
     recent_read = list(
-        Notification.objects.filter(dismissed_at__isnull=True, read_at__isnull=False)[
-            :RECENT_READ_LIMIT
-        ]
+        Notification.objects.filter(
+            garden=g, dismissed_at__isnull=True, read_at__isnull=False
+        )[:RECENT_READ_LIMIT]
     )
     return render(request, "garden/notifications/center.html", {
         "nav": "me",
@@ -59,7 +61,7 @@ def center(request):
 def action(request, pk, action):
     if request.method != "POST":
         return redirect("notifications")
-    notif = get_object_or_404(Notification, pk=pk)
+    notif = get_object_or_404(Notification, pk=pk, garden=garden_for(request))
     if action == "read":
         notif.read_at = notif.read_at or timezone.now()
         notif.save(update_fields=["read_at"])
@@ -75,7 +77,7 @@ def action(request, pk, action):
 @login_required
 def mark_all_read(request):
     if request.method == "POST":
-        Notification.visible_unread().update(read_at=timezone.now())
+        Notification.visible_unread(garden=garden_for(request)).update(read_at=timezone.now())
     return redirect("notifications")
 
 

@@ -38,6 +38,14 @@ class PlantForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
+    def __init__(self, *args, garden=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.garden = garden
+        if garden is not None:
+            self.fields["bed"].queryset = Bed.objects.filter(
+                garden=garden, archived_at__isnull=True
+            )
+
     GROUPS = {
         "basics": ["common_name", "cultivar", "photo", "plant_type", "bed", "location_note"],
         "details": ["botanical_name", "is_edible", "is_ornamental", "foliage",
@@ -75,10 +83,15 @@ class TaskForm(forms.ModelForm):
             "beds": forms.SelectMultiple(attrs={"size": 4}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["plants"].queryset = Plant.objects.filter(status="active")
-        self.fields["beds"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        plants = Plant.objects.filter(status="active")
+        beds = Bed.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            plants = plants.filter(garden=garden)
+            beds = beds.filter(garden=garden)
+        self.fields["plants"].queryset = plants
+        self.fields["beds"].queryset = beds
         self.fields["plants"].required = False
         self.fields["beds"].required = False
 
@@ -159,10 +172,15 @@ class JournalForm(forms.ModelForm):
             "tags": forms.SelectMultiple(attrs={"size": 4}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["plants"].queryset = Plant.objects.filter(status="active")
-        self.fields["beds"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        plants = Plant.objects.filter(status="active")
+        beds = Bed.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            plants = plants.filter(garden=garden)
+            beds = beds.filter(garden=garden)
+        self.fields["plants"].queryset = plants
+        self.fields["beds"].queryset = beds
         for name in ("plants", "beds", "tags"):
             self.fields[name].required = False
 
@@ -193,11 +211,17 @@ class BedForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
+    def __init__(self, *args, garden=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.garden = garden
+
     def clean_name(self):
         from .models import Bed
 
         name = self.cleaned_data["name"].strip()
         clash = Bed.objects.filter(archived_at__isnull=True, name__iexact=name)
+        if self.garden is not None:
+            clash = clash.filter(garden=self.garden)
         if self.instance.pk:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
@@ -236,11 +260,16 @@ class ProblemCaseForm(forms.ModelForm):
             "plants": forms.SelectMultiple(attrs={"size": 5}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["plants"].queryset = Plant.objects.filter(status="active")
+        plants = Plant.objects.filter(status="active")
+        beds = Bed.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            plants = plants.filter(garden=garden)
+            beds = beds.filter(garden=garden)
+        self.fields["plants"].queryset = plants
         self.fields["plants"].required = False
-        self.fields["bed"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        self.fields["bed"].queryset = beds
         self.fields["bed"].required = False
 
 

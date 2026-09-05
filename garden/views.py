@@ -16,6 +16,7 @@ from .models import (
     Tag,
     TaskOccurrence,
 )
+from .tenancy import garden_for
 
 COMING_SOON_DAYS = 14  # "this week & next" horizon for the Today screen
 
@@ -35,10 +36,11 @@ def _season_label(d: datetime.date) -> str:
 
 @login_required
 def today(request):
+    g = garden_for(request)
     today_ = datetime.date.today()
     horizon = today_ + datetime.timedelta(days=COMING_SOON_DAYS)
     pending = TaskOccurrence.objects.filter(
-        status=OccurrenceStatus.PENDING, task__archived_at__isnull=True
+        status=OccurrenceStatus.PENDING, task__archived_at__isnull=True, task__garden=g
     ).select_related("task")
 
     overdue, due_now, coming_soon = [], [], []
@@ -54,18 +56,21 @@ def today(request):
     from .models import CaseStatus, ProblemCase
 
     followups = list(
-        ProblemCase.objects.exclude(status=CaseStatus.RESOLVED)
+        ProblemCase.objects.filter(garden=g)
+        .exclude(status=CaseStatus.RESOLVED)
         .filter(follow_up_on__isnull=False, follow_up_on__lte=horizon)
         .select_related("problem_type", "bed")
         .order_by("follow_up_on")
     )
-    open_problem_count = ProblemCase.objects.exclude(status=CaseStatus.RESOLVED).count()
+    open_problem_count = (
+        ProblemCase.objects.filter(garden=g).exclude(status=CaseStatus.RESOLVED).count()
+    )
 
     from .irrigation_today import needs_repair_count
     from .planner_today import due_milestones
 
-    planner_milestones = due_milestones(on=today_, horizon_days=COMING_SOON_DAYS)
-    repair_count = needs_repair_count()
+    planner_milestones = due_milestones(on=today_, horizon_days=COMING_SOON_DAYS, garden=g)
+    repair_count = needs_repair_count(garden=g)
 
     hour = datetime.datetime.now().hour
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
@@ -79,16 +84,19 @@ def today(request):
         "today": today_,
         "season_label": _season_label(today_),
         "greeting": greeting,
-        "has_any_plants": Plant.objects.exists(),
+        "has_any_plants": Plant.objects.filter(garden=g).exists(),
         "overdue": overdue,
         "due_now": due_now,
         "coming_soon": coming_soon,
-        "watched": Plant.objects.filter(status=PlantStatus.ACTIVE).exclude(watch_reason=""),
+        "watched": Plant.objects.filter(garden=g, status=PlantStatus.ACTIVE).exclude(
+            watch_reason=""
+        ),
     })
 
 
 @login_required
 def plant_list(request):
+    g = garden_for(request)
     q = request.GET.get("q", "").strip()
     status = request.GET.get("status", PlantStatus.ACTIVE)
     valid_statuses = {value for value, _label in PlantStatus.choices}
@@ -96,7 +104,7 @@ def plant_list(request):
         status = PlantStatus.ACTIVE
 
     plants = (
-        Plant.objects.all()
+        Plant.objects.filter(garden=g)
         .select_related("primary_photo")
         .prefetch_related("locations__bed")
     )
@@ -137,7 +145,7 @@ def plant_list(request):
         "plants": plants,
         "q": q,
         "result_count": plants.count(),
-        "beds": Bed.objects.filter(archived_at__isnull=True),
+        "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
         "plant_types": PlantType.objects.filter(archived_at__isnull=True),
         "tags": Tag.objects.filter(archived_at__isnull=True),
         "statuses": [("all", "All statuses"), *PlantStatus.choices],
@@ -155,7 +163,7 @@ def plant_list(request):
 
 @login_required
 def plant_detail(request, pk):
-    plant = get_object_or_404(Plant, pk=pk)
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
     harvests = list(plant.harvests.select_related("unit")[:50])
     timeline = [
         {"label": str(a.activity_type), "note": a.note, "on": a.performed_on}
@@ -202,17 +210,19 @@ def _harvest_line(h) -> str:
 
 @login_required
 def plant_form(request, pk=None):
-    plant = get_object_or_404(Plant, pk=pk) if pk else None
+    g = garden_for(request)
+    plant = get_object_or_404(Plant, pk=pk, garden=g) if pk else None
     # AI lookup hand-off: a chosen candidate pre-fills the ADD form (one-shot).
     prefill = request.session.pop("plant_prefill", None) if not plant else None
     prefill_note = request.session.pop("plant_prefill_note", "") if prefill else ""
     form = PlantForm(
-        request.POST or None, request.FILES or None, instance=plant, initial=prefill
+        request.POST or None, request.FILES or None, instance=plant, initial=prefill, garden=g
     )
     if request.method == "POST" and form.is_valid():
         plant = form.save(commit=False)
         if not plant.created_by_id:
             plant.created_by = request.user
+        plant.garden = g
         plant.save()
         form.save_m2m()
         _apply_photo_and_location(plant, form, request)
@@ -230,7 +240,9 @@ def plant_form(request, pk=None):
 def _apply_photo_and_location(plant: Plant, form: PlantForm, request):
     upload = form.cleaned_data.get("photo")
     if upload:
-        photo = Photo.objects.create(file=upload, uploaded_by=request.user)
+        photo = Photo.objects.create(
+            file=upload, uploaded_by=request.user, garden=plant.garden
+        )
         plant.photos.add(photo)
         if not plant.primary_photo:
             plant.primary_photo = photo
@@ -260,9 +272,9 @@ def _apply_photo_and_location(plant: Plant, form: PlantForm, request):
 def task_list(request):
     view = request.GET.get("view", "due")
     today_ = datetime.date.today()
-    base = TaskOccurrence.objects.filter(task__archived_at__isnull=True).select_related(
-        "task", "task__category"
-    )
+    base = TaskOccurrence.objects.filter(
+        task__archived_at__isnull=True, task__garden=garden_for(request)
+    ).select_related("task", "task__category")
     if view == "completed":
         occurrences = base.exclude(status=OccurrenceStatus.PENDING).order_by("-completed_on")[:100]
     else:
@@ -287,13 +299,15 @@ def task_form(request, pk=None):
     from .forms import TaskForm
     from .models import Task
 
-    task = get_object_or_404(Task, pk=pk) if pk else None
-    form = TaskForm(request.POST or None, instance=task)
+    g = garden_for(request)
+    task = get_object_or_404(Task, pk=pk, garden=g) if pk else None
+    form = TaskForm(request.POST or None, instance=task, garden=g)
     if request.method == "POST" and form.is_valid():
         is_new = task is None
         task = form.save(commit=False)
         if not task.created_by_id:
             task.created_by = request.user
+        task.garden = g
         task.save()
         form.save_m2m()
         if is_new:
@@ -307,7 +321,8 @@ def occurrence_action(request, pk, action):
     """POST: complete or skip an occurrence. Returns the refreshed row (htmx)
     or redirects back (no-JS fallback)."""
     occ = get_object_or_404(
-        TaskOccurrence, pk=pk, status=OccurrenceStatus.PENDING
+        TaskOccurrence, pk=pk, status=OccurrenceStatus.PENDING,
+        task__garden=garden_for(request),
     )
     if request.method != "POST":
         return redirect("task-list")
@@ -321,11 +336,13 @@ def occurrence_action(request, pk, action):
     return redirect(request.POST.get("next") or "task-list")
 
 
-def _save_photos(files, user, plant=None):
+def _save_photos(files, user, plant=None, garden=None):
     """Create Photo rows for uploads and link them where they belong."""
     photos = []
     for f in files:
-        photo = Photo.objects.create(file=f, uploaded_by=user)
+        photo = Photo.objects.create(
+            file=f, uploaded_by=user, garden=garden or (plant.garden if plant else None)
+        )
         if plant:
             plant.photos.add(photo)
             if not plant.primary_photo_id:
@@ -339,12 +356,13 @@ def _save_photos(files, user, plant=None):
 def activity_add(request, pk):
     from .forms import ActivityForm
 
-    plant = get_object_or_404(Plant, pk=pk)
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
     form = ActivityForm(request.POST or None, request.FILES or None,
                         initial={"performed_on": datetime.date.today()})
     if request.method == "POST" and form.is_valid():
         activity = form.save(commit=False)
         activity.plant = plant
+        activity.garden = plant.garden
         activity.created_by = request.user
         activity.save()
         for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, plant):
@@ -358,12 +376,13 @@ def activity_add(request, pk):
 def harvest_add(request, pk):
     from .forms import HarvestForm
 
-    plant = get_object_or_404(Plant, pk=pk)
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
     form = HarvestForm(request.POST or None, request.FILES or None,
                        initial={"harvested_on": datetime.date.today()})
     if request.method == "POST" and form.is_valid():
         harvest = form.save(commit=False)
         harvest.plant = plant
+        harvest.garden = plant.garden
         harvest.created_by = request.user
         harvest.save()
         for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, plant):
@@ -377,11 +396,12 @@ def harvest_add(request, pk):
 def photo_add(request, pk):
     from .forms import PhotoForm
 
-    plant = get_object_or_404(Plant, pk=pk)
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
     form = PhotoForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         photo = form.save(commit=False)
         photo.uploaded_by = request.user
+        photo.garden = plant.garden
         photo.save()
         form.save_m2m()
         plant.photos.add(photo)
@@ -398,7 +418,8 @@ def journal_list(request):
     from .models import JournalEntry
 
     entries = (
-        JournalEntry.objects.prefetch_related("photos", "plants", "tags")
+        JournalEntry.objects.filter(garden=garden_for(request))
+        .prefetch_related("photos", "plants", "tags")
         .select_related("created_by")
     )
     q = request.GET.get("q", "").strip()
@@ -417,14 +438,16 @@ def journal_add(request):
 
     from .forms import JournalForm
 
-    form = JournalForm(request.POST or None, request.FILES or None)
+    g = garden_for(request)
+    form = JournalForm(request.POST or None, request.FILES or None, garden=g)
     if request.method == "POST" and form.is_valid():
         entry = form.save(commit=False)
         entry.occurred_at = tz.now()
         entry.created_by = request.user
+        entry.garden = g
         entry.save()
         form.save_m2m()
-        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, garden=g):
             entry.photos.add(photo)
         return redirect("journal-list")
     return render(request, "garden/journal/form.html", {"nav": "journal", "form": form})
@@ -441,7 +464,11 @@ def problem_list(request):
 
     kind = request.GET.get("kind", "")
     show = request.GET.get("show", "open")
-    cases = ProblemCase.objects.select_related("problem_type", "bed").prefetch_related("plants")
+    cases = (
+        ProblemCase.objects.filter(garden=garden_for(request))
+        .select_related("problem_type", "bed")
+        .prefetch_related("plants")
+    )
     if kind:
         cases = cases.filter(problem_type__kind=kind)
     if show == "open":
@@ -456,23 +483,28 @@ def problem_add(request):
     from .forms import ProblemCaseForm
     from .models import ProblemType
 
+    g = garden_for(request)
     initial = {"first_observed": datetime.date.today()}
     plant_pk = request.GET.get("plant")
-    form = ProblemCaseForm(request.POST or None, request.FILES or None, initial=initial)
+    form = ProblemCaseForm(request.POST or None, request.FILES or None, initial=initial,
+                           garden=g)
     if request.method == "POST" and form.is_valid():
         ptype, _ = ProblemType.objects.get_or_create(
             kind=form.cleaned_data["kind"],
             name__iexact=form.cleaned_data["type_name"].strip(),
             archived_at__isnull=True,
+            garden=g,
             defaults={"kind": form.cleaned_data["kind"],
-                      "name": form.cleaned_data["type_name"].strip()},
+                      "name": form.cleaned_data["type_name"].strip(),
+                      "garden": g},
         )
         case = form.save(commit=False)
         case.problem_type = ptype
         case.created_by = request.user
+        case.garden = g
         case.save()
         form.save_m2m()
-        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, garden=g):
             case.photos.add(photo)
         return redirect("problem-detail", pk=case.pk)
     if plant_pk:
@@ -485,7 +517,8 @@ def problem_detail(request, pk):
     from .models import CaseStatus, ProblemCase
 
     case = get_object_or_404(
-        ProblemCase.objects.select_related("problem_type", "bed"), pk=pk
+        ProblemCase.objects.select_related("problem_type", "bed"),
+        pk=pk, garden=garden_for(request),
     )
     if request.method == "POST":  # status change buttons
         new_status = request.POST.get("status")
@@ -505,7 +538,8 @@ def treatment_add(request, pk):
     from .forms import TreatmentForm
     from .models import CaseStatus, ProblemCase
 
-    case = get_object_or_404(ProblemCase, pk=pk)
+    g = garden_for(request)
+    case = get_object_or_404(ProblemCase, pk=pk, garden=g)
     form = TreatmentForm(request.POST or None, request.FILES or None,
                          initial={"treated_on": datetime.date.today()})
     if request.method == "POST" and form.is_valid():
@@ -513,7 +547,7 @@ def treatment_add(request, pk):
         treatment.case = case
         treatment.created_by = request.user
         treatment.save()
-        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user):
+        for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, garden=g):
             treatment.photos.add(photo)
         if case.status in (CaseStatus.MONITORING, CaseStatus.ACTIVE):
             case.status = CaseStatus.TREATING

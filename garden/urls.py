@@ -35,6 +35,7 @@ urlpatterns = [
     path("plants/<int:pk>/enrich/", views_ai.plant_enrich, name="plant-enrich"),
     path("map/", views_map.map_page, name="map"),
     path("map/data.json", views_map.map_data, name="map-data"),
+    path("map/beds/create/", views_map.bed_create_from_outline, name="map-bed-create"),
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),
     path("map/plant/<int:pk>/point/", views_map.plant_point, name="map-plant-point"),
     path("map/layers/upload/", views_map.layer_upload, name="map-layer-upload"),

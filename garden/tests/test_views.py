@@ -61,6 +61,8 @@ def test_plant_add_offers_photo_picker_and_drag_drop(user_client):
     assert r.status_code == 200
     assert b"Drag a plant photo here" in r.content
     assert b"choose from Photos or files" in r.content
+    assert b"Remove selected photo" in r.content
+    assert b"data-photo-remove hidden" in r.content
     assert b"js/photo-picker.js" in r.content
 
 

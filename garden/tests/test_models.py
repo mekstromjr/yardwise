@@ -270,8 +270,12 @@ def test_large_jpeg_derivatives_bounded_and_correct():
     Image.new("RGB", (4000, 3000), "green").save(buf, "JPEG", quality=85)
     p = Photo(file=SimpleUploadedFile("big.jpg", buf.getvalue(), "image/jpeg"))
     p.save()
-    p.file_web.open("rb"); web = Image.open(p.file_web); web.load()
-    p.file_thumb.open("rb"); thumb = Image.open(p.file_thumb); thumb.load()
+    p.file_web.open("rb")
+    web = Image.open(p.file_web)
+    web.load()
+    p.file_thumb.open("rb")
+    thumb = Image.open(p.file_thumb)
+    thumb.load()
     assert max(web.size) <= WEB_MAX and max(web.size) > THUMB_MAX
     assert max(thumb.size) <= THUMB_MAX
     assert web.size[0] / web.size[1] == pytest.approx(4000 / 3000, rel=0.02)

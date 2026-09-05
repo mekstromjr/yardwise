@@ -17,6 +17,11 @@ class Garden(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="gardens"
     )
+    # Sharing (#27): people invited to tend this garden alongside the owner.
+    # Membership grants full tending access; only the owner manages members.
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="shared_gardens"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -33,3 +38,13 @@ class Garden(models.Model):
     def for_user(cls, user) -> "Garden":
         garden, _created = cls.objects.get_or_create(owner=user)
         return garden
+
+    def accessible_to(self, user) -> bool:
+        return self.owner_id == user.id or self.members.filter(pk=user.pk).exists()
+
+    @classmethod
+    def gardens_for(cls, user):
+        """Every garden this user may tend: their own first, then shared."""
+        own = cls.for_user(user)
+        shared = list(user.shared_gardens.all())
+        return [own] + shared

@@ -74,7 +74,7 @@ def noop(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("garden", "0008_garden_remove_bed_unique_active_bed_name_and_more"),
+        ("garden", "0009_garden_remove_bed_unique_active_bed_name_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

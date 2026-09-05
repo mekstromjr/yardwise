@@ -10,7 +10,23 @@ from django.views.static import serve
 @login_required
 def serve_media(request, path):
     # MEDIA_ROOT read per-request (not captured at import) so test overrides
-    # and env changes behave; login gate keeps photos non-public (PDD 11).
+    # and env changes behave. Beyond the login gate, files that belong to a
+    # garden are only served to users with access to that garden (#27);
+    # legacy files with no owning record fall back to login-only.
+    from django.http import Http404
+
+    from garden.models import MapLayer, Photo
+    from garden.tenancy import garden_for
+
+    record = (
+        Photo.objects.filter(file=path).first()
+        or MapLayer.objects.filter(image=path).first()
+    )
+    if record is not None and record.garden_id is not None:
+        garden = garden_for(request)
+        owns = record.garden_id == garden.pk
+        if not owns and not record.garden.accessible_to(request.user):
+            raise Http404
     return serve(request, path, document_root=settings.MEDIA_ROOT)
 
 

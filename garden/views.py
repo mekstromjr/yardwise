@@ -459,6 +459,16 @@ def plant_photo_remove(request, pk, photo_pk):
 
 
 @login_required
+@require_POST
+def plant_photo_make_primary(request, pk, photo_pk):
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    photo = get_object_or_404(plant.photos.all(), pk=photo_pk)
+    plant.primary_photo = photo
+    plant.save(update_fields=["primary_photo", "updated_at"])
+    return redirect("plant-detail", pk=plant.pk)
+
+
+@login_required
 def journal_list(request):
     from .models import JournalEntry
 

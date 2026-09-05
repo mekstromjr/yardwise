@@ -465,3 +465,4 @@ nav.primary a.user-entry .user-name {
 }
 .map-photo-fields input { flex: 1; min-width: 210px; }
 .plant-photo-picker .photo-drop-zone { margin-top: 6px; }
+.plant-photo-picker .photo-remove { margin-top: 8px; color: var(--terracotta); }

@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('garden', '0007_climateprofile_variety_irrigationzone_and_more'),
+        ('garden', '0008_maplayer_natural_height_maplayer_natural_width'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

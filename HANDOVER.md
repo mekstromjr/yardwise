@@ -7,6 +7,11 @@ which nursery a plant came from", "walk me through getting set up". The
 assistant does the technical work; you direct and approve. When it says
 something "needs Michael", that's real - text him.
 
+Sharing: your garden is private to your account. To let Dad (or anyone)
+tend it with you, open your account page (your name, bottom of the sidebar),
+type their username under Sharing, and they can switch into your garden from
+their own account page. You can remove them the same way.
+
 You need two things, once, from Michael or Dad:
 1. **Tailscale** running on your computer (you already have it).
 2. An **access token** - a long password that lets your assistant work with

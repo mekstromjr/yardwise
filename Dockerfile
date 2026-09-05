@@ -1,5 +1,9 @@
 FROM python:3.12.11-slim-bookworm
 
+# Set by CI to the git tag being built; "dev" everywhere else.
+ARG VERSION=dev
+ENV YARDWISE_VERSION=$VERSION
+
 COPY --from=ghcr.io/astral-sh/uv:0.7.17 /uv /uvx /bin/
 
 WORKDIR /app

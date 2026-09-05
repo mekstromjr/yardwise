@@ -500,3 +500,9 @@ def test_problem_list_filters_by_kind(user_client):
     ProblemCase.objects.create(problem_type=pest, first_observed=datetime.date.today())
     r = user_client.get(reverse("problem-list"), {"kind": "weed"})
     assert b"Dandelion" in r.content and b"Slugs" not in r.content
+
+
+def test_account_page_shows_version(user_client, monkeypatch):
+    monkeypatch.setenv("YARDWISE_VERSION", "v9.9.9")
+    r = user_client.get(reverse("me"))
+    assert b"version v9.9.9" in r.content

@@ -455,7 +455,20 @@ def journal_add(request):
 
 @login_required
 def me(request):
-    return render(request, "garden/me.html", {"nav": "me"})
+    import os
+
+    from .models import Garden
+    from .tenancy import garden_for
+
+    own = Garden.for_user(request.user)
+    return render(request, "garden/me.html", {
+        "nav": "me",
+        "app_version": os.environ.get("YARDWISE_VERSION", "dev"),
+        "own_garden": own,
+        "active_garden": garden_for(request),
+        "gardens": Garden.gardens_for(request.user),
+        "garden_members": own.members.all(),
+    })
 
 
 @login_required

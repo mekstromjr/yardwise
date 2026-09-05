@@ -17,10 +17,51 @@
 </section>
 
 <section class="card">
+  <h2>Your garden{{ gardens|length|pluralize }}</h2>
+  {% for garden in gardens %}
+    <div class="row">
+      <div class="grow">
+        <div class="title">{{ garden.name }}{% if garden.owner == user %} (yours){% else %} ({{ garden.owner.username }}'s){% endif %}</div>
+        {% if garden == active_garden %}<div class="meta">currently tending</div>{% endif %}
+      </div>
+      {% if garden != active_garden %}
+      <form method="post" action="{% url 'garden-switch' %}">{% csrf_token %}
+        <input type="hidden" name="garden" value="{{ garden.pk }}">
+        <button class="btn small secondary" type="submit">Tend this garden</button>
+      </form>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  <h2 style="margin-top:14px">Sharing</h2>
+  {% for member in garden_members %}
+    <div class="row">
+      <div class="grow">{{ member.username }} can tend your garden</div>
+      <form method="post" action="{% url 'garden-remove-member' member.pk %}">{% csrf_token %}
+        <button class="btn small secondary" type="submit">Remove</button>
+      </form>
+    </div>
+  {% empty %}
+    <p class="meta" style="color:var(--ink-soft)">Nobody else tends your garden yet.</p>
+  {% endfor %}
+  <form method="post" action="{% url 'garden-invite' %}" style="display:flex; gap:8px; margin-top:8px">
+    {% csrf_token %}
+    <input type="text" name="username" placeholder="Their username" style="flex:1">
+    <button class="btn small" type="submit">Invite</button>
+  </form>
+  {% if messages %}{% for m in messages %}
+    <p class="meta" style="font-weight:700; margin-top:6px">{{ m }}</p>
+  {% endfor %}{% endif %}
+</section>
+
+<section class="card">
   <h2>Session</h2>
   <form method="post" action="{% url 'logout' %}">
     {% csrf_token %}
     <button class="btn warm" type="submit">Sign out</button>
   </form>
 </section>
+<p class="meta" style="color:var(--ink-soft); font-size:12px; text-align:center; margin-top:18px">
+  YardWise · version {{ app_version }}
+</p>
 {% endblock %}

@@ -8,11 +8,16 @@ from . import (
     views_notifications,
     views_planner,
     views_settings,
+    views_sharing,
 )
 
 urlpatterns = [
     path("", views.today, name="today"),
     path("me/", views.me, name="me"),
+    path("garden/switch/", views_sharing.switch_garden, name="garden-switch"),
+    path("garden/invite/", views_sharing.invite_member, name="garden-invite"),
+    path("garden/members/<int:user_id>/remove/", views_sharing.remove_member,
+         name="garden-remove-member"),
     path("plants/", views.plant_list, name="plant-list"),
     path("plants/add/", views.plant_form, name="plant-add"),
     path("plants/<int:pk>/", views.plant_detail, name="plant-detail"),

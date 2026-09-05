@@ -106,10 +106,10 @@ def test_satellite_fetch_geocodes_and_creates_layer(user_client, monkeypatch, se
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     r = user_client.post(reverse("map-satellite"), {"address": "123 Main St", "span_m": "150"})
     assert r.status_code == 302
-    from garden.models import MapLayer, PropertyMap
+    from garden.models import MapLayer
     layer = MapLayer.objects.get()
     assert layer.is_primary and "123 Main St" in layer.name
-    assert PropertyMap.get().width == 1280.0
+    assert _pmap(user_client).width == 1280.0
     assert any("nominatim" in u for u in calls) and any("World_Imagery" in u for u in calls)
 
 
@@ -194,9 +194,20 @@ def test_newest_layer_replaces_previous_as_primary(user_client):
     second = MapLayer.objects.get(name="my own aerial")
     assert second.is_primary and second.visible  # newest wins
     assert not first.is_primary and not first.visible  # old kept, hidden
-    # coordinate space sized once, by the first layer only
+    # with no geometry, the space follows the newest image's shape
+    assert _pmap(user_client).width == 10.0
+
+
+
+
+def _pmap(client):
+    """The PropertyMap row belonging to the logged-in test user's garden."""
+    from django.contrib.auth.models import User
+
     from garden.models import PropertyMap
-    assert PropertyMap.get().width == 10.0
+    from garden.models.tenancy import Garden
+
+    return PropertyMap.get(Garden.for_user(User.objects.get(username="m")))
 
 
 def _upload_png(user_client, name, w, h):
@@ -220,10 +231,10 @@ def test_layer_records_natural_size_and_resizes_empty_space(user_client):
     layer = MapLayer.objects.get()
     assert (layer.natural_width, layer.natural_height) == (30.0, 20.0)
     # no geometry yet -> space adopts the image's shape
-    assert (PropertyMap.get().width, PropertyMap.get().height) == (30.0, 20.0)
+    assert (_pmap(user_client).width, _pmap(user_client).height) == (30.0, 20.0)
     # a second image, different shape, still no geometry -> space follows again
     _upload_png(user_client, "tall", 10, 40)
-    assert (PropertyMap.get().width, PropertyMap.get().height) == (10.0, 40.0)
+    assert (_pmap(user_client).width, _pmap(user_client).height) == (10.0, 40.0)
 
 
 def test_space_frozen_once_geometry_exists(user_client):
@@ -231,7 +242,7 @@ def test_space_frozen_once_geometry_exists(user_client):
     Bed.objects.create(name="Traced", boundary=[[0, 0], [5, 0], [5, 5]])
     _upload_png(user_client, "second", 100, 10)
     # traced data pins the space; the new image will letterbox client-side
-    assert (PropertyMap.get().width, PropertyMap.get().height) == (30.0, 20.0)
+    assert (_pmap(user_client).width, _pmap(user_client).height) == (30.0, 20.0)
 
 
 def test_map_data_includes_layer_dims(user_client):

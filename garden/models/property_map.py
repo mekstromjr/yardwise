@@ -16,8 +16,11 @@ from django.db import models
 
 
 class PropertyMap(models.Model):
-    """Singleton: the coordinate space + grid configuration."""
+    """One per garden: the coordinate space + grid configuration."""
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     width = models.FloatField(default=1000)
     height = models.FloatField(default=750)
     grid_cols = models.PositiveSmallIntegerField(default=10)
@@ -31,8 +34,8 @@ class PropertyMap(models.Model):
         return f"Property map ({self.width:g}x{self.height:g})"
 
     @classmethod
-    def get(cls) -> "PropertyMap":
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def get(cls, garden=None) -> "PropertyMap":
+        obj, _ = cls.objects.get_or_create(garden=garden)
         return obj
 
     def cell_for(self, x: float, y: float) -> str:
@@ -79,6 +82,9 @@ class MapLayer(models.Model):
     """A reference image (aerial photo, hand-drawn plan). Hiding or replacing
     one never moves structured data."""
 
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     name = models.CharField(max_length=100)
     image = models.ImageField(upload_to=aerial_upload_path)
     is_primary = models.BooleanField(default=False)

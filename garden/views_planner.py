@@ -20,6 +20,7 @@ from .models import (
     SeasonalPlanting,
     Variety,
 )
+from .tenancy import garden_for
 
 
 class VarietyForm(forms.ModelForm):
@@ -50,10 +51,15 @@ class PlantingForm(forms.ModelForm):
             "season_notes": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, garden=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["variety"].queryset = Variety.objects.filter(archived_at__isnull=True)
-        self.fields["bed"].queryset = Bed.objects.filter(archived_at__isnull=True)
+        varieties = Variety.objects.filter(archived_at__isnull=True)
+        beds = Bed.objects.filter(archived_at__isnull=True)
+        if garden is not None:
+            varieties = varieties.filter(garden=garden)
+            beds = beds.filter(garden=garden)
+        self.fields["variety"].queryset = varieties
+        self.fields["bed"].queryset = beds
         self.fields["bed"].empty_label = "(no bed yet)"
 
 
@@ -80,6 +86,7 @@ class CloseSeasonForm(forms.Form):
 
 @login_required
 def planner_home(request):
+    g = garden_for(request)
     current_year = datetime.date.today().year
     try:
         year = int(request.GET.get("year", current_year))
@@ -87,10 +94,10 @@ def planner_home(request):
         year = current_year
 
     plantings = (
-        SeasonalPlanting.objects.filter(year=year, archived_at__isnull=True)
+        SeasonalPlanting.objects.filter(garden=g, year=year, archived_at__isnull=True)
         .select_related("variety", "bed")
     )
-    climate = ClimateProfile.load()
+    climate = ClimateProfile.load(g)
 
     # Group by bed; unassigned plantings form their own group at the end.
     groups: dict[int | None, dict] = {}
@@ -103,7 +110,7 @@ def planner_home(request):
         groups.values(), key=lambda g: (g["bed"] is None, g["bed"].name if g["bed"] else "")
     )
 
-    years = SeasonalPlanting.objects.values_list("year", flat=True).distinct()
+    years = SeasonalPlanting.objects.filter(garden=g).values_list("year", flat=True).distinct()
     year_choices = sorted({current_year, current_year + 1, year, *years})
 
     return render(request, "garden/planner/home.html", {
@@ -113,19 +120,21 @@ def planner_home(request):
         "bed_groups": bed_groups,
         "climate": climate,
         "climate_ready": climate.last_frost_date(year) is not None,
-        "has_varieties": Variety.objects.filter(archived_at__isnull=True).exists(),
+        "has_varieties": Variety.objects.filter(garden=g, archived_at__isnull=True).exists(),
     })
 
 
 @login_required
 def planting_form(request, pk=None):
-    planting = get_object_or_404(SeasonalPlanting, pk=pk) if pk else None
+    g = garden_for(request)
+    planting = get_object_or_404(SeasonalPlanting, pk=pk, garden=g) if pk else None
     initial = {} if planting else {"year": datetime.date.today().year}
-    form = PlantingForm(request.POST or None, instance=planting, initial=initial)
+    form = PlantingForm(request.POST or None, instance=planting, initial=initial, garden=g)
     if request.method == "POST" and form.is_valid():
         planting = form.save(commit=False)
         if not planting.created_by_id:
             planting.created_by = request.user
+        planting.garden = g
         planting.save()
         return redirect(f"/planner/?year={planting.year}")
     return render(request, "garden/planner/planting_form.html", {
@@ -138,7 +147,9 @@ def mark_planted(request, pk):
     """One-click 'Mark as Planted' (PDD 6.2): sets status and the
     method-appropriate actual date. Idempotent-ish: never overwrites a date
     the user already recorded."""
-    planting = get_object_or_404(SeasonalPlanting, pk=pk, archived_at__isnull=True)
+    planting = get_object_or_404(
+        SeasonalPlanting, pk=pk, garden=garden_for(request), archived_at__isnull=True
+    )
     if request.method == "POST":
         today = datetime.date.today()
         planting.status = PlantingStatus.PLANTED
@@ -153,7 +164,9 @@ def mark_planted(request, pk):
 @login_required
 def close_planting(request, pk):
     """End-of-season close (PDD 6.13): finished + grow-again rating + notes."""
-    planting = get_object_or_404(SeasonalPlanting, pk=pk, archived_at__isnull=True)
+    planting = get_object_or_404(
+        SeasonalPlanting, pk=pk, garden=garden_for(request), archived_at__isnull=True
+    )
     form = CloseSeasonForm(request.POST or None, initial={
         "grow_again": planting.grow_again, "closing_note": planting.season_notes,
     })
@@ -170,7 +183,7 @@ def close_planting(request, pk):
 
 @login_required
 def variety_list(request):
-    varieties = Variety.objects.filter(archived_at__isnull=True)
+    varieties = Variety.objects.filter(garden=garden_for(request), archived_at__isnull=True)
     return render(request, "garden/planner/variety_list.html", {
         "nav": "plants", "varieties": varieties,
     })
@@ -178,10 +191,13 @@ def variety_list(request):
 
 @login_required
 def variety_form(request, pk=None):
-    variety = get_object_or_404(Variety, pk=pk) if pk else None
+    g = garden_for(request)
+    variety = get_object_or_404(Variety, pk=pk, garden=g) if pk else None
     form = VarietyForm(request.POST or None, instance=variety)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        variety = form.save(commit=False)
+        variety.garden = g
+        variety.save()
         return redirect("variety-list")
     return render(request, "garden/planner/variety_form.html", {
         "nav": "plants", "form": form, "variety": variety,
@@ -190,7 +206,7 @@ def variety_form(request, pk=None):
 
 @login_required
 def climate_form(request):
-    profile = ClimateProfile.load()
+    profile = ClimateProfile.load(garden_for(request))
     form = ClimateForm(request.POST or None, instance=profile)
     if request.method == "POST" and form.is_valid():
         form.save()

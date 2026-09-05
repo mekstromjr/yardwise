@@ -21,13 +21,13 @@ def zones_for_bed(bed):
     return bed.irrigation_zones.filter(archived_at__isnull=True)
 
 
-def needs_repair_count():
+def needs_repair_count(garden=None):
     """How many irrigation things need attention: zones flagged needs_repair
-    plus unarchived components in a fault condition."""
+    plus unarchived components in a fault condition (scoped to one garden)."""
     zones = IrrigationZone.objects.filter(
-        archived_at__isnull=True, status=ZoneStatus.NEEDS_REPAIR
+        garden=garden, archived_at__isnull=True, status=ZoneStatus.NEEDS_REPAIR
     ).count()
     components = IrrigationComponent.objects.filter(
-        archived_at__isnull=True, condition__in=_FAULT_CONDITIONS
+        garden=garden, archived_at__isnull=True, condition__in=_FAULT_CONDITIONS
     ).count()
     return zones + components

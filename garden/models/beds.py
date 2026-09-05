@@ -11,6 +11,9 @@ from .vocab import BedType
 
 
 class Bed(models.Model):
+    garden = models.ForeignKey(
+        "garden.Garden", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
     code = models.CharField(max_length=10, unique=True, editable=False)
     name = models.CharField(max_length=100)
     short_code = models.CharField(max_length=10, blank=True)
@@ -28,14 +31,15 @@ class Bed(models.Model):
     class Meta:
         ordering = ["name"]
         constraints = [
-            # Display names unique among active beds; archived beds free the name.
+            # Display names unique among a garden's active beds; archived beds
+            # free the name. Different gardens may reuse a name freely.
             models.UniqueConstraint(
-                fields=["name"],
+                fields=["garden", "name"],
                 condition=models.Q(archived_at__isnull=True),
                 name="unique_active_bed_name",
             ),
             models.UniqueConstraint(
-                fields=["short_code"],
+                fields=["garden", "short_code"],
                 condition=models.Q(archived_at__isnull=True) & ~models.Q(short_code=""),
                 name="unique_active_bed_short_code",
             ),

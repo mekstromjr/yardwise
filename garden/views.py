@@ -446,6 +446,19 @@ def photo_add(request, pk):
 
 
 @login_required
+@require_POST
+def plant_photo_remove(request, pk, photo_pk):
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    photo = get_object_or_404(plant.photos.all(), pk=photo_pk)
+
+    if plant.primary_photo_id == photo.pk:
+        plant.primary_photo = plant.photos.exclude(pk=photo.pk).first()
+        plant.save(update_fields=["primary_photo", "updated_at"])
+    plant.photos.remove(photo)
+    return redirect("plant-detail", pk=plant.pk)
+
+
+@login_required
 def journal_list(request):
     from .models import JournalEntry
 

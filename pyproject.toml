@@ -10,6 +10,7 @@ dependencies = [
     "whitenoise>=6.8",
     "pillow>=11.0",
     "django-htmx>=1.21",
+    "django-storages[s3]>=1.14",
 ]
 
 [dependency-groups]

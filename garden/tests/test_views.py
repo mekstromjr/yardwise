@@ -381,6 +381,37 @@ def test_remove_photo_is_post_only_and_requires_plant_link(user_client):
     ).status_code == 404
 
 
+def test_plant_photo_can_be_selected_as_primary(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    first = Photo.objects.create(file=_png())
+    second = Photo.objects.create(file=_png())
+    plant.photos.add(first, second)
+    plant.primary_photo = first
+    plant.save(update_fields=["primary_photo"])
+
+    response = user_client.post(
+        reverse("plant-photo-make-primary", args=[plant.pk, second.pk])
+    )
+
+    assert response.status_code == 302
+    plant.refresh_from_db()
+    assert plant.primary_photo == second
+    assert plant.photos.count() == 2
+
+
+def test_make_primary_photo_is_post_only_and_requires_plant_link(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    linked = Photo.objects.create(file=_png())
+    unrelated = Photo.objects.create(file=_png())
+    plant.photos.add(linked)
+    url = reverse("plant-photo-make-primary", args=[plant.pk, linked.pk])
+
+    assert user_client.get(url).status_code == 405
+    assert user_client.post(
+        reverse("plant-photo-make-primary", args=[plant.pk, unrelated.pk])
+    ).status_code == 404
+
+
 def test_plant_photo_delete_control_has_confirmation(user_client):
     plant = Plant.objects.create(common_name="Honeysuckle")
     photo = Photo.objects.create(file=_png())
@@ -390,6 +421,20 @@ def test_plant_photo_delete_control_has_confirmation(user_client):
 
     assert b"Delete photo" in response.content
     assert b"The plant will not be deleted" in response.content
+
+
+def test_plant_photo_library_marks_primary_and_offers_selection(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    first = Photo.objects.create(file=_png())
+    second = Photo.objects.create(file=_png())
+    plant.photos.add(first, second)
+    plant.primary_photo = first
+    plant.save(update_fields=["primary_photo"])
+
+    response = user_client.get(reverse("plant-detail", args=[plant.pk]))
+
+    assert response.content.count(b"Main photo") == 1
+    assert response.content.count(b"Make main photo") == 1
 
 
 def test_additional_photo_page_uses_existing_plant_picker(user_client):

@@ -33,6 +33,11 @@ urlpatterns = [
         views.plant_photo_remove,
         name="plant-photo-remove",
     ),
+    path(
+        "plants/<int:pk>/photos/<int:photo_pk>/make-primary/",
+        views.plant_photo_make_primary,
+        name="plant-photo-make-primary",
+    ),
     path("journal/", views.journal_list, name="journal-list"),
     path("journal/add/", views.journal_add, name="journal-add"),
     path("ai/identify/", views_ai.identify, name="ai-identify"),

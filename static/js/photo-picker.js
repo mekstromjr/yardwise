@@ -47,6 +47,14 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
   input.addEventListener("change", () => showSelected(input.files[0]));
   removeButton.addEventListener("click", clearSelected);
 
+  const form = picker.closest("form");
+  form.addEventListener("submit", () => {
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = submitButton.dataset.savingLabel || "Saving...";
+    form.setAttribute("aria-busy", "true");
+  });
+
   ["dragenter", "dragover"].forEach(eventName => {
     dropZone.addEventListener(eventName, event => {
       event.preventDefault();

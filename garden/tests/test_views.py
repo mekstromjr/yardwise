@@ -298,9 +298,24 @@ def test_photo_upload_sets_primary_and_links(user_client):
     r = user_client.post(reverse("photo-add", args=[plant.pk]),
                          {"file": _png(), "caption": "first bloom"})
     assert r.status_code == 302
+    r = user_client.post(reverse("photo-add", args=[plant.pk]),
+                         {"file": _png(), "caption": "second bloom"})
+    assert r.status_code == 302
     plant.refresh_from_db()
     assert plant.primary_photo is not None
-    assert plant.photos.count() == 1
+    assert plant.photos.count() == 2
+    assert Plant.objects.count() == 1
+
+
+def test_additional_photo_page_uses_existing_plant_picker(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+
+    r = user_client.get(reverse("photo-add", args=[plant.pk]))
+
+    assert r.status_code == 200
+    assert b"It will not create another plant" in r.content
+    assert b"Drag another photo here" in r.content
+    assert b"choose from Photos or files" in r.content
 
 
 def test_journal_entry_with_photos_and_plant_link(user_client):

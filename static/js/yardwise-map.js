@@ -12,6 +12,12 @@ function yardwiseMap(opts) {
   const nameForm = document.getElementById("new-bed-name-form");
   const nameInput = document.getElementById("new-bed-name");
   const nameError = document.getElementById("new-bed-error");
+  const photoDrop = document.getElementById("map-photo-drop");
+  const photoInput = document.getElementById("map-photo-input");
+  const photoPreview = document.getElementById("map-photo-preview");
+  const photoIcon = document.getElementById("map-photo-icon");
+  const photoTitle = document.getElementById("map-photo-title");
+  let previewUrl = null;
 
   const toLL = (x, y) => [-y, x];
   const fromLL = (ll) => [ll.lng, -ll.lat];
@@ -29,6 +35,48 @@ function yardwiseMap(opts) {
   }
 
   function setStatus(msg) { document.getElementById("map-status").textContent = msg; }
+
+  function showSelectedPhoto(file) {
+    if (!file) return;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(file);
+    photoPreview.src = previewUrl;
+    photoPreview.hidden = false;
+    photoIcon.hidden = true;
+    photoTitle.textContent = file.name || "Photo selected";
+  }
+
+  photoInput.addEventListener("change", () => showSelectedPhoto(photoInput.files[0]));
+  ["dragenter", "dragover"].forEach(eventName => {
+    photoDrop.addEventListener(eventName, event => {
+      event.preventDefault();
+      photoDrop.classList.add("dragging");
+    });
+  });
+  ["dragleave", "drop"].forEach(eventName => {
+    photoDrop.addEventListener(eventName, event => {
+      event.preventDefault();
+      photoDrop.classList.remove("dragging");
+    });
+  });
+  photoDrop.addEventListener("drop", event => {
+    const file = Array.from(event.dataTransfer.files).find(item =>
+      item.type.startsWith("image/") || /\.(heic|heif)$/i.test(item.name)
+    );
+    if (!file) {
+      setStatus("That item is not a photo. Choose an image from Photos or files.");
+      return;
+    }
+    try {
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      photoInput.files = transfer.files;
+      showSelectedPhoto(file);
+      setStatus("Photo ready - add a name if you like, then use this photo.");
+    } catch (error) {
+      setStatus("This browser cannot receive that dragged photo. Tap the chooser instead.");
+    }
+  });
 
   function drawTrace() {
     if (state.traceLayer) state.traceLayer.remove();

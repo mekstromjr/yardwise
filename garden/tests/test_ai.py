@@ -31,7 +31,7 @@ def test_ai_routes_hidden_without_key(client, monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     client.force_login(User.objects.create_user("m"))
     assert client.get(reverse("ai-identify")).status_code == 404
-    assert client.get(reverse("ai-ask")).status_code == 404
+    assert client.get(reverse("assistant")).status_code == 404
 
 
 def test_identify_creates_suggestion_not_records(user_client, monkeypatch):
@@ -89,9 +89,13 @@ def test_enrich_choice_constraints_exist():
 
 def test_ask_records_question(user_client, monkeypatch):
     Plant.objects.create(common_name="Pear")
-    monkeypatch.setattr(ai, "ask", lambda *a, **k: "Prune the pear in late winter.")
-    r = user_client.post(reverse("ai-ask"), {"question": "what should I prune?"})
+    monkeypatch.setattr(ai, "ask", lambda *a, **k: (
+        "Prune the pear in late winter.",
+        [{"title": "OSU Extension - pruning pears", "url": "https://example.edu/pears"}],
+    ))
+    r = user_client.post(reverse("assistant"), {"question": "what should I prune?"})
     assert b"late winter" in r.content
+    assert b"OSU Extension" in r.content  # web citations rendered
     assert AISuggestion.objects.filter(kind="question").count() == 1
 
 
@@ -138,3 +142,48 @@ def test_lookup_hidden_without_key(client, monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     client.force_login(User.objects.create_user("x"))
     assert client.get(reverse("plant-lookup")).status_code == 404
+
+
+def test_assistant_hub_lists_history_and_saved(user_client, monkeypatch):
+    from garden.models import AISuggestion
+
+    AISuggestion.objects.create(kind="question", question="When to plant peas?",
+                                response={"answer": "Late winter."}, status="accepted")
+    AISuggestion.objects.create(kind="identify", status="saved",
+                                response={"name": "Mystery vine", "confidence": "low"})
+    r = user_client.get(reverse("assistant"))
+    assert b"When to plant peas?" in r.content
+    assert b"Mystery vine" in r.content and b"Saved for later" in r.content
+
+
+def test_web_plugin_sent_when_enabled(monkeypatch):
+    import urllib.request
+
+    captured = {}
+
+    class FakeResp:
+        def read(self):
+            return (b'{"choices": [{"message": {"content": "hi", '
+                    b'"annotations": [{"url_citation": {"url": "https://x.y", "title": "T"}}]}}]}')
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=0):
+        import json as j
+        captured.update(j.loads(req.data))
+        return FakeResp()
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    from garden import ai as ai_mod
+
+    content, sources = ai_mod.complete([{"role": "user", "content": "q"}], web=True)
+    assert captured.get("plugins") == [{"id": "web"}]
+    assert sources == [{"title": "T", "url": "https://x.y"}]
+    # opt-out respected
+    monkeypatch.setenv("YARDWISE_AI_WEB", "0")
+    captured.clear()
+    ai_mod.complete([{"role": "user", "content": "q"}], web=True)
+    assert "plugins" not in captured

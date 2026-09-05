@@ -19,6 +19,7 @@
         <span class="meta">{{ label }}</span><br>{{ value }}</label>
     </div>
   {% endfor %}
+  {% include "garden/ai/_sources.html" %}
   <p style="margin-top:12px; display:flex; gap:10px">
     <button class="btn" type="submit">Apply selected</button>
     <a class="btn secondary" href="{% url 'plant-detail' plant.pk %}">Cancel</a>

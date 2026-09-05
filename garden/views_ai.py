@@ -149,31 +149,41 @@ def plant_enrich(request, pk):
             kind=SuggestionKind.ENRICH, response=proposed, plant=plant,
             created_by=request.user,
         )
+        sources = proposed.pop("_sources", []) if isinstance(proposed, dict) else []
         fields = [(f, Plant._meta.get_field(f).verbose_name, v) for f, v in proposed.items()]
         return render(request, "garden/ai/enrich.html", {
             "nav": "plants", "plant": plant, "suggestion": suggestion, "fields": fields,
+            "sources": sources,
         })
     return render(request, "garden/ai/enrich.html", {"nav": "plants", "plant": plant})
 
 
 @login_required
-def ask(request):
+def assistant(request):
+    """The assistant's home: ask (with sources), identify entry, question
+    history, and saved-for-later identifications - all one screen."""
     _require_ai()
-    answer, question = None, ""
+    answer, question, sources = None, "", []
     if request.method == "POST":
         question = request.POST.get("question", "").strip()
         if question:
             try:
-                answer = ai.ask(question, _garden_context(), region="")
+                answer, sources = ai.ask(question, _garden_context(), region="")
             except ai.AIError:
                 answer = "The assistant couldn't be reached - try again in a minute."
             AISuggestion.objects.create(
                 kind=SuggestionKind.QUESTION, question=question,
-                response={"answer": answer}, created_by=request.user,
-                status=SuggestionStatus.ACCEPTED,
+                response={"answer": answer, "sources": sources},
+                created_by=request.user, status=SuggestionStatus.ACCEPTED,
             )
-    return render(request, "garden/ai/ask.html",
-                  {"nav": "today", "question": question, "answer": answer})
+    history = AISuggestion.objects.filter(kind=SuggestionKind.QUESTION)[:10]
+    saved = AISuggestion.objects.filter(
+        kind=SuggestionKind.IDENTIFY, status=SuggestionStatus.SAVED
+    )[:10]
+    return render(request, "garden/ai/assistant.html", {
+        "nav": "assistant", "question": question, "answer": answer,
+        "sources": sources, "history": history, "saved": saved,
+    })
 
 
 # Fields a lookup candidate may pre-fill on the Add Plant form.

@@ -389,7 +389,7 @@ nav.primary a.user-entry .user-name {
 /* --- explore tiles on Today ---------------------------------------------- */
 .explore-tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 10px;
   margin: 2px 0 14px;
 }

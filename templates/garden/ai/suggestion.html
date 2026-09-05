@@ -21,6 +21,7 @@
   <p>{{ r.summary }}</p>
   {% if r.action_advice and r.action_advice != "none needed" %}<p><strong>What to do:</strong> {{ r.action_advice }}</p>{% endif %}
   {% if r.caution %}<p style="color:var(--terracotta)"><strong>Caution:</strong> {{ r.caution }}</p>{% endif %}
+  {% with sources=r.sources %}{% include "garden/ai/_sources.html" %}{% endwith %}
 </section>
 {% if s.status == "pending" %}
 <form method="post" class="quick-actions">

@@ -42,6 +42,57 @@ def test_trace_bed_boundary_and_reject_bad_input(user_client):
     assert r.status_code == 400
 
 
+def test_create_and_name_bed_from_map_outline(user_client):
+    response = user_client.post(
+        reverse("map-bed-create"),
+        json.dumps({
+            "name": "  Front rose bed  ",
+            "boundary": [[10, 10], [110, 10], [110, 80], [10, 80]],
+        }),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    bed = Bed.objects.get()
+    assert body["ok"] and body["bed"] == {
+        "id": bed.pk, "code": "BED-001", "name": "Front rose bed",
+    }
+    assert bed.boundary == [[10, 10], [110, 10], [110, 80], [10, 80]]
+    assert bed.garden.owner.username == "m"
+    assert body["cells"]
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"name": "", "boundary": [[0, 0], [1, 0], [1, 1]]}, "Give the garden bed"),
+        ({"name": "New bed", "boundary": [[0, 0], [1, 0]]}, "at least three points"),
+    ],
+)
+def test_create_bed_from_map_rejects_incomplete_input(user_client, payload, message):
+    response = user_client.post(
+        reverse("map-bed-create"), json.dumps(payload), content_type="application/json"
+    )
+
+    assert response.status_code == 400
+    assert message in response.json()["error"]
+    assert not Bed.objects.exists()
+
+
+def test_create_bed_from_map_rejects_duplicate_active_name(user_client):
+    Bed.objects.create(name="Kitchen garden")
+
+    response = user_client.post(
+        reverse("map-bed-create"),
+        json.dumps({"name": "kitchen GARDEN", "boundary": [[0, 0], [1, 0], [1, 1]]}),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 409
+    assert Bed.objects.count() == 1
+
+
 def test_place_plant_resolves_containing_bed(user_client):
     bed = Bed.objects.create(name="Front Bed",
                              boundary=[[0, 0], [200, 0], [200, 200], [0, 200]])
@@ -78,6 +129,7 @@ def test_map_page_renders_with_focus(user_client):
     r = user_client.get(reverse("map"), {"plant": plant.pk})
     assert r.status_code == 200
     assert b"yardwise-map.js" in r.content
+    assert b"Outline a new bed" in r.content
 
 
 def test_satellite_fetch_geocodes_and_creates_layer(user_client, monkeypatch, settings, tmp_path):

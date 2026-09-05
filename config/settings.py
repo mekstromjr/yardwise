@@ -141,8 +141,27 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = os.environ.get("DJANGO_STATIC_ROOT", str(BASE_DIR / "staticfiles"))
+# Media lives in Garage S3 when configured (stateless pod -> zero-downtime
+# deploys, #28); plain filesystem otherwise (dev, and the pre-S3 fallback).
+YARDWISE_S3_BUCKET = os.environ.get("YARDWISE_S3_BUCKET", "")
+if YARDWISE_S3_BUCKET:
+    _default_storage = {
+        "BACKEND": "config.media_storage.GardenMediaStorage",
+        "OPTIONS": {
+            "bucket_name": YARDWISE_S3_BUCKET,
+            "endpoint_url": os.environ.get("YARDWISE_S3_ENDPOINT",
+                                           "http://garage-s3.infra.svc.cluster.local:3900"),
+            "region_name": os.environ.get("YARDWISE_S3_REGION", "meklab"),
+            "access_key": os.environ.get("YARDWISE_S3_ACCESS_KEY", ""),
+            "secret_key": os.environ.get("YARDWISE_S3_SECRET_KEY", ""),
+            "addressing_style": "path",
+        },
+    }
+else:
+    _default_storage = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": _default_storage,
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 

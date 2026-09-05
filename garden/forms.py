@@ -10,7 +10,20 @@ class PlantForm(forms.ModelForm):
     mirror the PDD Add/Edit Plant screen.
     """
 
-    photo = forms.ImageField(required=False, label="Photo")
+    photo = forms.ImageField(
+        required=False,
+        label="Photo",
+        widget=forms.ClearableFileInput(attrs={
+            "class": "photo-input",
+            "accept": "image/*,.heic,.heif",
+        }),
+        error_messages={
+            "invalid_image": (
+                "That photo format could not be read. In Photos, export it as JPEG or PNG "
+                "and try again."
+            ),
+        },
+    )
     bed = forms.ModelChoiceField(
         queryset=Bed.objects.filter(archived_at__isnull=True),
         required=False,

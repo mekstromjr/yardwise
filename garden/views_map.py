@@ -241,15 +241,30 @@ def layer_upload(request):
     """Upload an aerial/reference image. The newest layer becomes the view;
     the first one ever also sizes the coordinate space from its pixels."""
     from PIL import Image as PILImage
+    from PIL import UnidentifiedImageError
 
     g = garden_for(request)
-    image = request.FILES["image"]
+    image = request.FILES.get("image")
+    if image is None:
+        return _map_error(request, "Choose a photo to use for the map.")
+    try:
+        with PILImage.open(image) as uploaded:
+            natural_width, natural_height = float(uploaded.width), float(uploaded.height)
+        image.seek(0)
+    except (UnidentifiedImageError, OSError):
+        return _map_error(
+            request,
+            "That photo format could not be read. In Photos, export it as "
+            "JPEG or PNG and try again.",
+        )
     name = request.POST.get("name") or image.name
-    layer = MapLayer.objects.create(name=name, image=image, garden=g)
-    layer.image.open("rb")
-    with PILImage.open(layer.image) as im:
-        layer.natural_width, layer.natural_height = float(im.width), float(im.height)
-    layer.save(update_fields=["natural_width", "natural_height"])
+    layer = MapLayer.objects.create(
+        name=name,
+        image=image,
+        garden=g,
+        natural_width=natural_width,
+        natural_height=natural_height,
+    )
     _promote_layer(g, layer)
     _maybe_resize_space(g, layer)
     return redirect("map")

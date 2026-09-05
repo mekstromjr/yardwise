@@ -11,6 +11,9 @@ from django.db import models
 
 from .vocab import PhotoCategory
 
+WEB_MAX = 1600  # longest edge of the web derivative
+THUMB_MAX = 400
+
 
 class Season(models.TextChoices):
     WINTER = "winter", "Winter"
@@ -87,14 +90,25 @@ class Photo(models.Model):
         try:
             with self.file.open("rb") as fh:
                 original = Image.open(fh)
+                # Memory-bounded decode. A 48MP phone photo is ~146MB of RGB
+                # when fully decoded, and the old path held three such copies
+                # (~450MB) - enough to OOM-kill the pod. draft() asks the JPEG
+                # decoder to downscale DURING decode (DCT scaling), so the
+                # largest thing we ever hold is a few MB. No-op for PNG etc.
+                original.draft("RGB", (WEB_MAX, WEB_MAX))
+                original = ImageOps.exif_transpose(original).convert("RGB")
                 original.load()
         except Exception:  # unreadable image: keep the original, skip derivatives
             return
-        original = ImageOps.exif_transpose(original).convert("RGB")
         stem = self.file.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-        for attr, size, quality in (("file_web", 1600, 82), ("file_thumb", 400, 75)):
-            img = original.copy()
-            img.thumbnail((size, size))
+        # web first; the thumbnail derives from the web image, never from the
+        # original again (one shrink chain, no second large copy)
+        original.thumbnail((WEB_MAX, WEB_MAX))
+        outputs = [("file_web", original, 82)]
+        thumb = original.copy()
+        thumb.thumbnail((THUMB_MAX, THUMB_MAX))
+        outputs.append(("file_thumb", thumb, 75))
+        for attr, img, quality in outputs:
             buf = BytesIO()
             img.save(buf, "JPEG", quality=quality)
             getattr(self, attr).save(

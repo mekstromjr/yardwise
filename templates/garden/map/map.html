@@ -71,12 +71,25 @@
       </select>
       <button class="btn small secondary" type="submit">Fetch satellite image</button>
     </form>
+    <div class="field">
+      <strong>Aerial or reference photo</strong>
+      <div class="help">Use a photo from your library, or drag one here from Photos.</div>
+    </div>
     <form method="post" action="{% url 'map-layer-upload' %}" enctype="multipart/form-data"
-          class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          class="map-photo-upload" id="map-photo-upload">
       {% csrf_token %}
-      <input type="file" name="image" accept="image/*" required style="width:auto">
-      <input type="text" name="name" placeholder="Layer name (e.g. Aerial 2026)" style="width:auto">
-      <button class="btn small secondary" type="submit">Add aerial/reference image</button>
+      <label class="photo-drop-zone" id="map-photo-drop" for="map-photo-input">
+        <input class="photo-input" id="map-photo-input" type="file" name="image"
+               accept="image/*,.heic,.heif" required>
+        <img class="photo-drop-preview" id="map-photo-preview" alt="Selected aerial photo preview" hidden>
+        <span class="photo-drop-icon" id="map-photo-icon" aria-hidden="true">▧</span>
+        <strong id="map-photo-title">Drag a photo here</strong>
+        <span class="help">or <span class="photo-picker-link">choose from Photos or files</span></span>
+      </label>
+      <div class="map-photo-fields">
+        <input type="text" name="name" placeholder="Photo name (e.g. Aerial 2026)">
+        <button class="btn small secondary" id="map-photo-submit" type="submit">Use this photo</button>
+      </div>
     </form>
   </div>
 </details>

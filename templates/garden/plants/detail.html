@@ -2,7 +2,7 @@
 {% block title %}{{ plant }} - YardWise{% endblock %}
 {% block content %}
 <header class="page-head">
-  <div class="kicker">{{ plant.plant_type|default:"Plant" }}{% if plant.is_edible %} · edible{% endif %}</div>
+  <div class="kicker">{{ plant.plant_type|default:"Plant" }}{% if plant.is_edible %} · edible{% endif %}{% if plant.status == "archived" %} · archived{% endif %}</div>
   <h1>{{ plant.common_name }}{% if plant.cultivar %} '{{ plant.cultivar }}'{% endif %}</h1>
   <div class="sub">
     {% if plant.botanical_name %}<em>{{ plant.botanical_name }}</em> · {% endif %}
@@ -91,4 +91,30 @@
   {% endfor %}
 </section>
 {% endif %}
+
+<details class="section danger-zone">
+  <summary>{% if plant.status == "archived" %}Restore or delete{% else %}Archive or delete{% endif %}</summary>
+  <div class="inner">
+    {% if plant.status == "archived" %}
+      <p class="help">Restore this plant to the active inventory, with its photos and history intact.</p>
+      <form method="post" action="{% url 'plant-unarchive' plant.pk %}">
+        {% csrf_token %}
+        <button class="btn secondary" type="submit">Restore this plant</button>
+      </form>
+    {% else %}
+      <p class="help">Archive hides this plant from the active inventory but keeps its photos and history.</p>
+      <form method="post" action="{% url 'plant-archive' plant.pk %}">
+        {% csrf_token %}
+        <button class="btn secondary" type="submit">Archive this plant</button>
+      </form>
+    {% endif %}
+
+    <p class="help danger-copy">Deleting permanently removes this plant and its history. This cannot be undone.</p>
+    <form method="post" action="{% url 'plant-delete' plant.pk %}"
+          onsubmit="return confirm('Permanently delete {{ plant|escapejs }}? This cannot be undone. Choose Cancel if you would rather archive it.')">
+      {% csrf_token %}
+      <button class="btn warm" type="submit">Delete this plant permanently</button>
+    </form>
+  </div>
+</details>
 {% endblock %}

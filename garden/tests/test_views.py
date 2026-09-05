@@ -55,6 +55,15 @@ def test_plant_add_with_only_name_then_appears_in_list(user_client):
     assert b"Fuyu Persimmon" in r.content
 
 
+def test_plant_add_offers_photo_picker_and_drag_drop(user_client):
+    r = user_client.get(reverse("plant-add"))
+
+    assert r.status_code == 200
+    assert b"Drag a plant photo here" in r.content
+    assert b"choose from Photos or files" in r.content
+    assert b"js/photo-picker.js" in r.content
+
+
 def test_plant_search_filters(user_client):
     Plant.objects.create(common_name="Blueberry")
     Plant.objects.create(common_name="Pear")
@@ -238,6 +247,19 @@ def _png():
     from django.core.files.uploadedfile import SimpleUploadedFile
 
     return SimpleUploadedFile("leaf.png", buf.read(), "image/png")
+
+
+def test_plant_add_with_photo_sets_primary_photo(user_client):
+    r = user_client.post(reverse("plant-add"), {
+        "common_name": "Lady Fern",
+        "planted_precision": "exact",
+        "photo": _png(),
+    })
+
+    assert r.status_code == 302
+    plant = Plant.objects.get(common_name="Lady Fern")
+    assert plant.photos.count() == 1
+    assert plant.primary_photo == plant.photos.get()
 
 
 def test_record_activity_lands_in_history(user_client):

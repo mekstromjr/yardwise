@@ -408,7 +408,7 @@ nav.primary a.user-entry .user-name {
 .explore-tiles a:active { transform: scale(0.97); }
 .explore-tiles .tile-glyph { display: block; font-size: 22px; margin-bottom: 3px; color: var(--moss); }
 
-/* --- map photo picker ---------------------------------------------------- */
+/* --- photo pickers ------------------------------------------------------ */
 .map-photo-upload {
   display: grid;
   gap: 10px;
@@ -464,3 +464,4 @@ nav.primary a.user-entry .user-name {
   align-items: center;
 }
 .map-photo-fields input { flex: 1; min-width: 210px; }
+.plant-photo-picker .photo-drop-zone { margin-top: 6px; }

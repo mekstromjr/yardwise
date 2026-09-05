@@ -3,6 +3,8 @@ import datetime
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .forms import PlantForm
 from .models import (
@@ -195,6 +197,36 @@ def plant_detail(request, pk):
         "season_total": season_total,
         "year": year,
     })
+
+
+@login_required
+@require_POST
+def plant_archive(request, pk):
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    plant.status = PlantStatus.ARCHIVED
+    plant.archived_at = timezone.now()
+    plant.save(update_fields=["status", "archived_at", "updated_at"])
+    return redirect("plant-list")
+
+
+@login_required
+@require_POST
+def plant_unarchive(request, pk):
+    plant = get_object_or_404(
+        Plant, pk=pk, garden=garden_for(request), status=PlantStatus.ARCHIVED
+    )
+    plant.status = PlantStatus.ACTIVE
+    plant.archived_at = None
+    plant.save(update_fields=["status", "archived_at", "updated_at"])
+    return redirect("plant-detail", pk=plant.pk)
+
+
+@login_required
+@require_POST
+def plant_delete(request, pk):
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    plant.delete()
+    return redirect("plant-list")
 
 
 def _harvest_line(h) -> str:

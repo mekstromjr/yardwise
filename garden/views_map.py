@@ -170,46 +170,6 @@ def bed_create_from_outline(request):
         status=201,
     )
 
-
-@require_POST
-@login_required
-def bed_create_from_outline(request):
-    """Create and name a bed after its polygon has been traced on the map."""
-    try:
-        payload = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "That outline could not be read."}, status=400)
-
-    name = payload.get("name", "")
-    name = name.strip() if isinstance(name, str) else ""
-    if not name:
-        return JsonResponse({"error": "Give the garden bed a name."}, status=400)
-    if len(name) > Bed._meta.get_field("name").max_length:
-        return JsonResponse({"error": "Keep the bed name under 100 characters."}, status=400)
-    boundary = _boundary_from_payload(payload)
-    if boundary is None:
-        return JsonResponse({"error": "Tap at least three points to outline the bed."}, status=400)
-    if Bed.objects.filter(archived_at__isnull=True, name__iexact=name).exists():
-        return JsonResponse(
-            {"error": "There is already an active bed with that name."}, status=409
-        )
-
-    try:
-        bed = Bed.objects.create(name=name, boundary=boundary)
-    except IntegrityError:
-        return JsonResponse(
-            {"error": "There is already an active bed with that name."}, status=409
-        )
-    return JsonResponse(
-        {
-            "ok": True,
-            "bed": {"id": bed.pk, "code": bed.code, "name": bed.name},
-            "cells": PropertyMap.get().cells_for_polygon(boundary),
-        },
-        status=201,
-    )
-
-
 @require_POST
 @login_required
 def plant_point(request, pk):

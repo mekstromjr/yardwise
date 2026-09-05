@@ -17,14 +17,42 @@
 <details class="section" style="margin-top:12px">
   <summary>Edit the map</summary>
   <div class="inner">
+    <div class="field">
+      <strong>Garden beds</strong>
+      <div class="help">Outline a new bed directly on the map, then name it when the shape is finished.</div>
+    </div>
+    <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <button class="btn small" id="trace-new-start" type="button">Outline a new bed</button>
+    </div>
     <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
       <select id="trace-bed" style="width:auto">
-        <option value="">Trace which bed?</option>
+        <option value="">Adjust an existing bed...</option>
         {% for bed in beds %}<option value="{{ bed.pk }}">{{ bed.name }} ({{ bed.code }})</option>{% endfor %}
       </select>
-      <button class="btn small secondary" id="trace-start" type="button">Start tracing</button>
-      <button class="btn small" id="trace-finish" type="button">Finish bed</button>
+      <button class="btn small secondary" id="trace-existing-start" type="button">Adjust outline</button>
     </div>
+    <div class="field" id="trace-actions" hidden style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <button class="btn small secondary" id="trace-undo" type="button">Undo last point</button>
+      <button class="btn small" id="trace-finish" type="button">Finish outline</button>
+      <button class="btn small secondary" id="trace-cancel" type="button">Cancel</button>
+    </div>
+    <form class="card" id="new-bed-name-form" hidden style="margin:10px 0">
+      <div class="field">
+        <label for="new-bed-name">Name this garden bed</label>
+        <input id="new-bed-name" name="name" maxlength="100" required
+               placeholder="e.g. Front rose bed" autocomplete="off">
+        <div class="errors" id="new-bed-error" hidden></div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="btn small" type="submit">Create bed</button>
+        <button class="btn small secondary" id="new-bed-back" type="button">Adjust outline</button>
+        <button class="btn small secondary" id="new-bed-cancel" type="button">Cancel</button>
+      </div>
+    </form>
+    <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <strong style="width:100%">Plants</strong>
+      <div class="help" style="width:100%">Choose a plant, then tap its exact location on the map.</div>
+      </div>
     <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
       <select id="place-plant" style="width:auto">
         <option value="">Place which plant?</option>

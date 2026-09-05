@@ -3,11 +3,33 @@
 import json
 
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .models import Bed, MapLayer, Plant, PlantLocation, PropertyMap
+
+
+def _boundary_from_payload(payload):
+    """Return a valid polygon boundary or None.
+
+    Map writes share this validation so creating a bed from a new outline and
+    adjusting an existing outline accept exactly the same shape.
+    """
+    boundary = payload.get("boundary")
+    if (
+        not isinstance(boundary, list)
+        or len(boundary) < 3
+        or not all(
+            isinstance(point, list)
+            and len(point) == 2
+            and all(isinstance(value, int | float) for value in point)
+            for point in boundary
+        )
+    ):
+        return None
+    return boundary
 
 
 @login_required
@@ -69,16 +91,55 @@ def map_data(request):
 def bed_boundary(request, pk):
     """Save a traced bed polygon: JSON body {"boundary": [[x,y], ...] | null}."""
     bed = get_object_or_404(Bed, pk=pk, archived_at__isnull=True)
-    payload = json.loads(request.body)
-    boundary = payload.get("boundary")
-    if boundary is not None and (
-        not isinstance(boundary, list) or len(boundary) < 3
-        or not all(isinstance(p, list) and len(p) == 2 for p in boundary)
-    ):
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "That outline could not be read."}, status=400)
+    boundary = _boundary_from_payload(payload)
+    if boundary is None:
         return JsonResponse({"error": "boundary must be [[x,y],...] with 3+ points"}, status=400)
     bed.boundary = boundary
     bed.save(update_fields=["boundary"])
     return JsonResponse({"ok": True, "cells": PropertyMap.get().cells_for_polygon(boundary or [])})
+
+
+@require_POST
+@login_required
+def bed_create_from_outline(request):
+    """Create and name a bed after its polygon has been traced on the map."""
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "That outline could not be read."}, status=400)
+
+    name = payload.get("name", "")
+    name = name.strip() if isinstance(name, str) else ""
+    if not name:
+        return JsonResponse({"error": "Give the garden bed a name."}, status=400)
+    if len(name) > Bed._meta.get_field("name").max_length:
+        return JsonResponse({"error": "Keep the bed name under 100 characters."}, status=400)
+    boundary = _boundary_from_payload(payload)
+    if boundary is None:
+        return JsonResponse({"error": "Tap at least three points to outline the bed."}, status=400)
+    if Bed.objects.filter(archived_at__isnull=True, name__iexact=name).exists():
+        return JsonResponse(
+            {"error": "There is already an active bed with that name."}, status=409
+        )
+
+    try:
+        bed = Bed.objects.create(name=name, boundary=boundary)
+    except IntegrityError:
+        return JsonResponse(
+            {"error": "There is already an active bed with that name."}, status=409
+        )
+    return JsonResponse(
+        {
+            "ok": True,
+            "bed": {"id": bed.pk, "code": bed.code, "name": bed.name},
+            "cells": PropertyMap.get().cells_for_polygon(boundary),
+        },
+        status=201,
+    )
 
 
 @require_POST

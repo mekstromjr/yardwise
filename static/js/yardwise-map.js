@@ -8,6 +8,10 @@ function yardwiseMap(opts) {
   const map = L.map(el, { crs: L.CRS.Simple, minZoom: -3, attributionControl: false });
   const state = { data: null, mode: "view", traceBedId: null, tracePts: [],
                   placePlantId: null, markers: {}, bedShapes: {}, traceLayer: null };
+  const traceActions = document.getElementById("trace-actions");
+  const nameForm = document.getElementById("new-bed-name-form");
+  const nameInput = document.getElementById("new-bed-name");
+  const nameError = document.getElementById("new-bed-error");
 
   const toLL = (x, y) => [-y, x];
   const fromLL = (ll) => [ll.lng, -ll.lat];
@@ -25,6 +29,42 @@ function yardwiseMap(opts) {
   }
 
   function setStatus(msg) { document.getElementById("map-status").textContent = msg; }
+
+  function drawTrace() {
+    if (state.traceLayer) state.traceLayer.remove();
+    state.traceLayer = null;
+    if (!state.tracePts.length) return;
+    const points = state.tracePts.map(p => toLL(p[0], p[1]));
+    state.traceLayer = (state.tracePts.length >= 3
+      ? L.polygon(points, { color: "#bc5f38", dashArray: "6 4", fillOpacity: 0.1 })
+      : L.polyline(points, { color: "#bc5f38", dashArray: "6 4", weight: 3 })
+    ).addTo(map);
+  }
+
+  function startTrace(bedId) {
+    state.mode = "trace";
+    state.traceBedId = bedId;
+    state.tracePts = [];
+    drawTrace();
+    nameForm.hidden = true;
+    nameError.hidden = true;
+    traceActions.hidden = false;
+    setStatus(bedId
+      ? "Tap around the bed's edge to draw its new outline"
+      : "Tap around the new bed's edge, then finish the outline");
+  }
+
+  function cancelTrace() {
+    state.mode = "view";
+    state.traceBedId = null;
+    state.tracePts = [];
+    drawTrace();
+    traceActions.hidden = true;
+    nameForm.hidden = true;
+    nameError.hidden = true;
+    nameInput.value = "";
+    setStatus("Tap a bed or marker to identify it.");
+  }
 
   function render(data) {
     state.data = data;
@@ -97,11 +137,8 @@ function yardwiseMap(opts) {
     const [x, y] = fromLL(e.latlng);
     if (state.mode === "trace") {
       state.tracePts.push([Math.round(x), Math.round(y)]);
-      if (state.traceLayer) state.traceLayer.remove();
-      state.traceLayer = L.polygon(state.tracePts.map(p => toLL(p[0], p[1])), {
-        color: "#bc5f38", dashArray: "6 4", fillOpacity: 0.1,
-      }).addTo(map);
-      setStatus(`Tracing: ${state.tracePts.length} points - tap "Finish bed" when done`);
+      drawTrace();
+      setStatus(`Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"} - tap "Finish outline" when done`);
     } else if (state.mode === "place") {
       const res = await post(`/map/plant/${state.placePlantId}/point/`, {
         x: Math.round(x), y: Math.round(y),
@@ -112,20 +149,63 @@ function yardwiseMap(opts) {
     }
   });
 
-  document.getElementById("trace-start").addEventListener("click", () => {
+  document.getElementById("trace-new-start").addEventListener("click", () => startTrace(null));
+  document.getElementById("trace-existing-start").addEventListener("click", () => {
     const sel = document.getElementById("trace-bed");
-    if (!sel.value) { setStatus("Pick which bed you're tracing first"); return; }
-    state.mode = "trace"; state.traceBedId = sel.value; state.tracePts = [];
-    setStatus("Tap around the bed's edge on the map");
+    if (!sel.value) { setStatus("Pick the existing bed you want to adjust"); return; }
+    startTrace(sel.value);
   });
   document.getElementById("trace-finish").addEventListener("click", async () => {
     if (state.mode !== "trace" || state.tracePts.length < 3) {
       setStatus("Need at least 3 points"); return;
     }
+    if (!state.traceBedId) {
+      state.mode = "name-bed";
+      traceActions.hidden = true;
+      nameForm.hidden = false;
+      setStatus("Outline ready - give this garden bed a name");
+      nameInput.focus();
+      return;
+    }
     const res = await post(`/map/bed/${state.traceBedId}/boundary/`,
                            { boundary: state.tracePts });
     setStatus(res.ok ? `Saved (cells ${res.cells.join(", ")}). Reloading...` : res.error);
     if (res.ok) setTimeout(() => window.location.reload(), 600);
+  });
+  document.getElementById("trace-undo").addEventListener("click", () => {
+    if (state.mode !== "trace" || !state.tracePts.length) return;
+    state.tracePts.pop();
+    drawTrace();
+    setStatus(state.tracePts.length
+      ? `Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"}`
+      : "Tap the first point on the bed's edge");
+  });
+  document.getElementById("trace-cancel").addEventListener("click", cancelTrace);
+  document.getElementById("new-bed-cancel").addEventListener("click", cancelTrace);
+  document.getElementById("new-bed-back").addEventListener("click", () => {
+    state.mode = "trace";
+    nameForm.hidden = true;
+    traceActions.hidden = false;
+    setStatus("Adjust the outline, then finish it again");
+  });
+  nameForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = nameInput.value.trim();
+    if (!name) {
+      nameError.textContent = "Give the garden bed a name.";
+      nameError.hidden = false;
+      nameInput.focus();
+      return;
+    }
+    const res = await post("/map/beds/create/", { name, boundary: state.tracePts });
+    if (!res.ok) {
+      nameError.textContent = res.error || "The bed could not be created.";
+      nameError.hidden = false;
+      return;
+    }
+    nameError.hidden = true;
+    setStatus(`Created ${res.bed.name} (${res.bed.code}). Reloading...`);
+    setTimeout(() => { window.location.search = `?bed=${res.bed.id}`; }, 600);
   });
   document.getElementById("place-start").addEventListener("click", () => {
     const sel = document.getElementById("place-plant");

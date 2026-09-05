@@ -1,19 +1,20 @@
-from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
 from django.http import HttpResponse
 from django.urls import include, path, re_path
-from django.views.static import serve
 
 
 @login_required
 def serve_media(request, path):
-    # MEDIA_ROOT read per-request (not captured at import) so test overrides
-    # and env changes behave. Beyond the login gate, files that belong to a
-    # garden are only served to users with access to that garden (#27);
-    # legacy files with no owning record fall back to login-only.
-    from django.http import Http404
+    # Streams through the default storage backend (Garage S3 in prod,
+    # filesystem in dev/tests), so image URLs stay on this host and the
+    # login + garden-membership gate applies regardless of where bytes
+    # live (#27/#28). Legacy files with no owning record are login-only.
+    import mimetypes
+
+    from django.core.files.storage import default_storage
+    from django.http import FileResponse, Http404
 
     from garden.models import MapLayer, Photo
     from garden.tenancy import garden_for
@@ -27,7 +28,10 @@ def serve_media(request, path):
         owns = record.garden_id == garden.pk
         if not owns and not record.garden.accessible_to(request.user):
             raise Http404
-    return serve(request, path, document_root=settings.MEDIA_ROOT)
+    if not default_storage.exists(path):
+        raise Http404
+    content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    return FileResponse(default_storage.open(path, "rb"), content_type=content_type)
 
 
 def healthz(_request):

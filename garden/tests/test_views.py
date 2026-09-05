@@ -111,6 +111,47 @@ def test_plant_status_filter_defaults_to_active_and_can_show_archived(user_clien
     assert b"Old Pear" in archived.content and b"Living Pear" not in archived.content
 
 
+def test_plant_can_be_archived_and_restored(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+
+    response = user_client.post(reverse("plant-archive", args=[plant.pk]))
+
+    assert response.status_code == 302
+    plant.refresh_from_db()
+    assert plant.status == PlantStatus.ARCHIVED
+    assert plant.archived_at is not None
+    assert b"Rose" not in user_client.get(reverse("plant-list")).content
+
+    response = user_client.post(reverse("plant-unarchive", args=[plant.pk]))
+
+    assert response.status_code == 302
+    plant.refresh_from_db()
+    assert plant.status == PlantStatus.ACTIVE
+    assert plant.archived_at is None
+
+
+def test_plant_delete_is_post_only_and_permanent(user_client):
+    plant = Plant.objects.create(common_name="Duplicate Rose")
+    url = reverse("plant-delete", args=[plant.pk])
+
+    assert user_client.get(url).status_code == 405
+    response = user_client.post(url)
+
+    assert response.status_code == 302
+    assert not Plant.objects.filter(pk=plant.pk).exists()
+
+
+def test_plant_detail_explains_archive_and_confirms_delete(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+
+    response = user_client.get(reverse("plant-detail", args=[plant.pk]))
+
+    assert b"Archive this plant" in response.content
+    assert b"Delete this plant permanently" in response.content
+    assert b"return confirm(" in response.content
+    assert b"This cannot be undone" in response.content
+
+
 def test_plant_filters_ignore_invalid_url_values(user_client):
     Plant.objects.create(common_name="Pear")
 

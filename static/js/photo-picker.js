@@ -8,7 +8,11 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
   const icon = picker.querySelector("[data-photo-icon]");
   const title = picker.querySelector("[data-photo-title]");
   const message = picker.querySelector("[data-photo-message]");
+  const removeButton = picker.querySelector("[data-photo-remove]");
   let previewUrl = null;
+
+  const emptyTitle = title.textContent;
+  const emptyMessage = message.textContent;
 
   function showSelected(file) {
     if (!file) return;
@@ -19,6 +23,19 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
     icon.hidden = true;
     title.textContent = file.name || "Photo selected";
     message.textContent = "Photo ready - save the plant when you are finished.";
+    removeButton.hidden = false;
+  }
+
+  function clearSelected() {
+    input.value = "";
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+    preview.removeAttribute("src");
+    preview.hidden = true;
+    icon.hidden = false;
+    title.textContent = emptyTitle;
+    message.textContent = emptyMessage;
+    removeButton.hidden = true;
   }
 
   preview.addEventListener("error", () => {
@@ -28,6 +45,7 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
   });
 
   input.addEventListener("change", () => showSelected(input.files[0]));
+  removeButton.addEventListener("click", clearSelected);
 
   ["dragenter", "dragover"].forEach(eventName => {
     dropZone.addEventListener(eventName, event => {

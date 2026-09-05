@@ -35,6 +35,8 @@
             <strong data-photo-title>Drag a plant photo here</strong>
             <span class="help">or <span class="photo-picker-link">choose from Photos or files</span></span>
           </label>
+          <button class="btn small secondary photo-remove" type="button"
+                  data-photo-remove hidden>Remove selected photo</button>
           <div class="help" data-photo-message>Add one now, or save the plant with only a name.</div>
           {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}
         </div>

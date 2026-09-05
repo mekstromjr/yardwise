@@ -205,6 +205,10 @@ class PhotoForm(forms.ModelForm):
         model = Photo
         fields = ["file", "taken_on", "caption", "categories"]
         widgets = {
+            "file": forms.ClearableFileInput(attrs={
+                "class": "photo-input",
+                "accept": "image/*,.heic,.heif",
+            }),
             "taken_on": forms.DateInput(attrs={"type": "date"}),
             "categories": forms.CheckboxSelectMultiple,
         }

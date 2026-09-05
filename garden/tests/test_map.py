@@ -197,3 +197,44 @@ def test_newest_layer_replaces_previous_as_primary(user_client):
     # coordinate space sized once, by the first layer only
     from garden.models import PropertyMap
     assert PropertyMap.get().width == 10.0
+
+
+def _upload_png(user_client, name, w, h):
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), "green").save(buf, "PNG")
+    return user_client.post(
+        reverse("map-layer-upload"),
+        {"image": SimpleUploadedFile(f"{name}.png", buf.getvalue(), "image/png"), "name": name},
+    )
+
+
+def test_layer_records_natural_size_and_resizes_empty_space(user_client):
+    from garden.models import MapLayer
+
+    _upload_png(user_client, "wide", 30, 20)
+    layer = MapLayer.objects.get()
+    assert (layer.natural_width, layer.natural_height) == (30.0, 20.0)
+    # no geometry yet -> space adopts the image's shape
+    assert (PropertyMap.get().width, PropertyMap.get().height) == (30.0, 20.0)
+    # a second image, different shape, still no geometry -> space follows again
+    _upload_png(user_client, "tall", 10, 40)
+    assert (PropertyMap.get().width, PropertyMap.get().height) == (10.0, 40.0)
+
+
+def test_space_frozen_once_geometry_exists(user_client):
+    _upload_png(user_client, "first", 30, 20)
+    Bed.objects.create(name="Traced", boundary=[[0, 0], [5, 0], [5, 5]])
+    _upload_png(user_client, "second", 100, 10)
+    # traced data pins the space; the new image will letterbox client-side
+    assert (PropertyMap.get().width, PropertyMap.get().height) == (30.0, 20.0)
+
+
+def test_map_data_includes_layer_dims(user_client):
+    _upload_png(user_client, "wide", 30, 20)
+    data = user_client.get(reverse("map-data")).json()
+    assert data["layers"][0]["w"] == 30.0 and data["layers"][0]["h"] == 20.0

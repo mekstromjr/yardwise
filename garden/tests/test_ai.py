@@ -187,3 +187,18 @@ def test_web_plugin_sent_when_enabled(monkeypatch):
     captured.clear()
     ai_mod.complete([{"role": "user", "content": "q"}], web=True)
     assert "plugins" not in captured
+
+
+def test_identify_sends_web_derivative_not_original(user_client, monkeypatch):
+    """A 48MP original base64-encoded is tens of MB in memory; the web
+    derivative carries everything the model needs."""
+    captured = {}
+
+    def fake_identify(photo_file, *a, **k):
+        captured["name"] = getattr(photo_file, "name", "")
+        return {"name": "Fern", "kind": "plant", "confidence": "high",
+                "summary": "s", "action_advice": "none needed", "caution": ""}
+
+    monkeypatch.setattr(ai, "identify", fake_identify)
+    user_client.post(reverse("ai-identify"), {"photo": _png(), "question": "?"})
+    assert captured["name"].endswith("_web.jpg"), captured

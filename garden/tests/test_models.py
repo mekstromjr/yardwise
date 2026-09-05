@@ -254,3 +254,24 @@ def test_photo_without_exif_keeps_null_date():
     p.save()
     assert p.taken_on is None
     assert p.web_url  # fallback chain still yields a url
+
+
+def test_large_jpeg_derivatives_bounded_and_correct():
+    """The reduced-scale decode path (Image.draft) must still yield correct,
+    orientation-preserved derivatives from a big JPEG."""
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    from garden.models.photos import THUMB_MAX, WEB_MAX
+
+    buf = io.BytesIO()
+    Image.new("RGB", (4000, 3000), "green").save(buf, "JPEG", quality=85)
+    p = Photo(file=SimpleUploadedFile("big.jpg", buf.getvalue(), "image/jpeg"))
+    p.save()
+    p.file_web.open("rb"); web = Image.open(p.file_web); web.load()
+    p.file_thumb.open("rb"); thumb = Image.open(p.file_thumb); thumb.load()
+    assert max(web.size) <= WEB_MAX and max(web.size) > THUMB_MAX
+    assert max(thumb.size) <= THUMB_MAX
+    assert web.size[0] / web.size[1] == pytest.approx(4000 / 3000, rel=0.02)

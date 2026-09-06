@@ -52,6 +52,22 @@ urlpatterns = [
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),
     path("map/plant/<int:pk>/point/", views_map.plant_point, name="map-plant-point"),
     path("map/layers/upload/", views_map.layer_upload, name="map-layer-upload"),
+    path(
+        "map/master/adopt-preserved/",
+        views_map.adopt_preserved_master,
+        name="map-master-adopt-preserved",
+    ),
+    path("map/master/upload/", views_map.master_map_upload, name="map-master-upload"),
+    path(
+        "map/master/<int:pk>/activate/",
+        views_map.master_map_activate,
+        name="map-master-activate",
+    ),
+    path(
+        "map/layers/<int:pk>/toggle/",
+        views_map.reference_layer_toggle,
+        name="map-layer-toggle",
+    ),
     path("map/layers/satellite/", views_map.satellite_fetch, name="map-satellite"),
     path("problems/", views.problem_list, name="problem-list"),
     path("problems/add/", views.problem_add, name="problem-add"),

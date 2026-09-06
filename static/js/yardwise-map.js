@@ -7,7 +7,8 @@ function yardwiseMap(opts) {
   const el = document.getElementById("map");
   const map = L.map(el, { crs: L.CRS.Simple, minZoom: -3, attributionControl: false });
   const state = { data: null, mode: "view", traceBedId: null, tracePts: [],
-                  placePlantId: null, markers: {}, bedShapes: {}, traceLayer: null };
+                  placePlantId: null, markers: {}, bedShapes: {}, traceLayer: null,
+                  plantLayer: L.layerGroup() };
   const traceActions = document.getElementById("trace-actions");
   const nameForm = document.getElementById("new-bed-name-form");
   const nameInput = document.getElementById("new-bed-name");
@@ -124,7 +125,10 @@ function yardwiseMap(opts) {
     data.layers.forEach(layer => {
       if (!layer.visible) return;
       let lb = bounds;
-      if (layer.w && layer.h) {
+      if (layer.render_w && layer.render_h) {
+        lb = [toLL(layer.x, layer.y + layer.render_h),
+              toLL(layer.x + layer.render_w, layer.y)];
+      } else if (layer.w && layer.h) {
         const scale = Math.min(data.width / layer.w, data.height / layer.h);
         const w = layer.w * scale, h = layer.h * scale;
         const x0 = (data.width - w) / 2, y0 = (data.height - h) / 2;
@@ -162,15 +166,26 @@ function yardwiseMap(opts) {
     data.points.forEach(pt => {
       const m = L.circleMarker(toLL(pt.x, pt.y), {
         radius: 7, color: "#fffdf6", weight: 2, fillColor: "#bc5f38", fillOpacity: 0.95,
-      }).addTo(map).bindPopup(
+      }).addTo(state.plantLayer).bindPopup(
         `<strong>${pt.name}</strong><br>${pt.bed || "no bed"} · ${pt.cell}` +
         `<br><a href="${pt.url}">Open plant</a>`);
       state.markers[pt.plant_id] = m;
     });
     map.fitBounds(bounds);
 
+    // Keep the normal property view quiet. Fine-grained plant markers appear
+    // only after zooming in or entering a selected-bed/plant context.
+    function updateProgressiveLayers() {
+      const revealPlants = map.getZoom() >= 0 || opts.focusPlant || opts.focusBed;
+      if (revealPlants && !map.hasLayer(state.plantLayer)) state.plantLayer.addTo(map);
+      if (!revealPlants && map.hasLayer(state.plantLayer)) state.plantLayer.removeFrom(map);
+    }
+    map.on("zoomend", updateProgressiveLayers);
+    updateProgressiveLayers();
+
     // focus requested from a profile page ("Show on map")
     if (opts.focusPlant && state.markers[opts.focusPlant]) {
+      state.plantLayer.addTo(map);
       const m = state.markers[opts.focusPlant];
       map.setView(m.getLatLng(), 1);
       m.openPopup();

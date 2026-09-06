@@ -41,7 +41,7 @@ from .problems import (
     Severity,
     Treatment,
 )
-from .property_map import MapLayer, PropertyMap
+from .property_map import MapLayer, MapLayerKind, PropertyMap
 from .records import Activity, HarvestEvent, HarvestQuality, JournalEntry
 from .tasks import (
     IntervalAnchor,
@@ -70,7 +70,7 @@ __all__ = [
     "ProblemType", "Severity", "Treatment",
     "Garden",
     "HarvestEvent", "HarvestQuality", "HarvestUnit", "IntervalAnchor", "IntervalUnit",
-    "JournalEntry", "MapLayer", "OccurrenceStatus", "Photo", "PhotoCategory",
+    "JournalEntry", "MapLayer", "MapLayerKind", "OccurrenceStatus", "Photo", "PhotoCategory",
     "Plant", "PropertyMap",
     "PlantLocation", "PlantStatus", "PlantType", "Priority", "ScheduleKind", "Season",
     "SeasonWindow", "SuggestionKind", "SuggestionStatus", "SunNeeds", "Tag", "Task",

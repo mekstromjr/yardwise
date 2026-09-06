@@ -1,15 +1,26 @@
 """Property map views (PDD section 4 MVP): view, trace, place, identify."""
 
+import hashlib
 import json
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError
+from django.core.files.base import ContentFile
+from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import Bed, MapLayer, Plant, PlantLocation, PropertyMap
+from .models import Bed, MapLayer, MapLayerKind, Plant, PlantLocation, PropertyMap
 from .tenancy import garden_for
+
+MASTER_MAP_FILENAME = "pnw-home-master-v1.png"
+MASTER_MAP_SHA256 = "1185a0e9fbacecd937bfc9ed96de0401532669e89fe5be9dc223028a7c438cab"
+MASTER_MAP_PATH = (
+    Path(settings.BASE_DIR) / "garden" / "assets" / "master_maps" / MASTER_MAP_FILENAME
+)
 
 
 def _boundary_from_payload(payload):
@@ -58,12 +69,22 @@ def _boundary_from_payload(payload):
 def map_page(request):
     g = garden_for(request)
     pmap = PropertyMap.get(g)
+    masters = MapLayer.objects.filter(
+        garden=g, kind=MapLayerKind.MASTER, archived_at__isnull=True
+    )
+    active_master = masters.filter(is_primary=True).first()
     focus_plant = request.GET.get("plant", "")
     focus_bed = request.GET.get("bed", "")
     return render(request, "garden/map/map.html", {
         "nav": "map",
         "pmap": pmap,
         "layers": MapLayer.objects.filter(garden=g, archived_at__isnull=True),
+        "active_master": active_master,
+        "master_versions": masters.order_by("-version"),
+        "bundled_master_installed": masters.filter(source_sha256=MASTER_MAP_SHA256).exists(),
+        "reference_layers": MapLayer.objects.filter(
+            garden=g, archived_at__isnull=True
+        ).exclude(kind=MapLayerKind.MASTER),
         "focus_plant": focus_plant,
         "focus_bed": focus_bed,
         "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
@@ -96,11 +117,18 @@ def map_data(request):
             "cell": pmap.cell_for(loc.point_x, loc.point_y),
             "url": f"/plants/{loc.plant_id}/",
         })
+    active_layers = MapLayer.objects.filter(garden=g, archived_at__isnull=True)
+    # Base first, optional references above it.
+    layer_rows = list(active_layers.filter(kind=MapLayerKind.MASTER).order_by("version"))
+    layer_rows += list(active_layers.exclude(kind=MapLayerKind.MASTER).order_by("uploaded_at"))
     layers = [
         {"id": la.pk, "name": la.name, "url": la.image.url, "primary": la.is_primary,
          "visible": la.visible, "opacity": la.opacity,
-         "w": la.natural_width, "h": la.natural_height}
-        for la in MapLayer.objects.filter(garden=g, archived_at__isnull=True)
+         "kind": la.kind, "version": la.version,
+         "w": la.natural_width, "h": la.natural_height,
+         "x": la.canvas_x, "y": la.canvas_y,
+         "render_w": la.canvas_width, "render_h": la.canvas_height}
+        for la in layer_rows
     ]
     return JsonResponse({
         "width": pmap.width, "height": pmap.height,
@@ -223,9 +251,18 @@ def _promote_layer(garden, layer) -> bool:
     view; older layers stay as hidden reference toggles (PDD: keep prior
     imagery; replacing it never moves structured data, R-043). Returns
     whether this is the property's first layer (which sizes the map)."""
+    if MapLayer.objects.filter(
+        garden=garden, kind=MapLayerKind.MASTER, is_primary=True,
+        archived_at__isnull=True,
+    ).exists():
+        layer.is_primary = False
+        layer.visible = False
+        layer.save(update_fields=["is_primary", "visible"])
+        return False
+
     others = MapLayer.objects.filter(
         garden=garden, archived_at__isnull=True
-    ).exclude(pk=layer.pk)
+    ).exclude(kind=MapLayerKind.MASTER).exclude(pk=layer.pk)
     was_first = not others.exists()
     others.update(is_primary=False, visible=False)
     if not (layer.is_primary and layer.visible):
@@ -262,6 +299,7 @@ def layer_upload(request):
         name=name,
         image=image,
         garden=g,
+        kind=MapLayerKind.AERIAL,
         natural_width=natural_width,
         natural_height=natural_height,
     )
@@ -385,6 +423,7 @@ def satellite_fetch(request):
                "didn't answer - try again in a minute.")
         return _map_error(request, msg)
     layer = MapLayer(name=f"Satellite - {address[:60]}", garden=g,
+                     kind=MapLayerKind.AERIAL,
                      natural_width=1280.0, natural_height=1280.0)
     layer.image.save("satellite.png", ContentFile(image_bytes), save=True)
     _promote_layer(g, layer)
@@ -395,10 +434,180 @@ def satellite_fetch(request):
 def _map_error(request, msg):
     g = garden_for(request)
     pmap = PropertyMap.get(g)
+    masters = MapLayer.objects.filter(
+        garden=g, kind=MapLayerKind.MASTER, archived_at__isnull=True
+    )
     return render(request, "garden/map/map.html", {
         "nav": "map", "pmap": pmap, "error": msg,
         "layers": MapLayer.objects.filter(garden=g, archived_at__isnull=True),
+        "active_master": masters.filter(is_primary=True).first(),
+        "master_versions": masters.order_by("-version"),
+        "bundled_master_installed": masters.filter(source_sha256=MASTER_MAP_SHA256).exists(),
+        "reference_layers": MapLayer.objects.filter(
+            garden=g, archived_at__isnull=True
+        ).exclude(kind=MapLayerKind.MASTER),
         "focus_plant": "", "focus_bed": "",
         "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
         "plants": Plant.objects.filter(garden=g, status="active"),
     })
+
+
+def _image_dimensions(upload):
+    from PIL import Image as PILImage
+    from PIL import UnidentifiedImageError
+
+    try:
+        with PILImage.open(upload) as opened:
+            size = float(opened.width), float(opened.height)
+        upload.seek(0)
+        return size
+    except (UnidentifiedImageError, OSError):
+        return None
+
+
+def _next_master_version(garden):
+    latest = MapLayer.objects.filter(
+        garden=garden, kind=MapLayerKind.MASTER
+    ).aggregate(latest=Max("version"))["latest"]
+    return (latest or 0) + 1
+
+
+def _fit_master_to_canvas(pmap, layer):
+    scale = min(pmap.width / layer.natural_width, pmap.height / layer.natural_height)
+    width = layer.natural_width * scale
+    height = layer.natural_height * scale
+    layer.canvas_x = (pmap.width - width) / 2
+    layer.canvas_y = (pmap.height - height) / 2
+    layer.canvas_width = width
+    layer.canvas_height = height
+
+
+@transaction.atomic
+def _activate_master(garden, layer):
+    MapLayer.objects.filter(
+        garden=garden, kind=MapLayerKind.MASTER, archived_at__isnull=True
+    ).exclude(pk=layer.pk).update(is_primary=False, visible=False)
+
+    pmap = PropertyMap.get(garden)
+    if not _map_has_geometry(garden):
+        pmap.width = layer.natural_width
+        pmap.height = layer.natural_height
+    # The master defines the clean default. Grid/record geometry remains in
+    # the same permanent coordinate space and is revealed interactively.
+    pmap.grid_visible = False
+    pmap.save(update_fields=["width", "height", "grid_visible"])
+
+    _fit_master_to_canvas(pmap, layer)
+    layer.is_primary = True
+    layer.visible = True
+    layer.opacity = 1.0
+    layer.save(update_fields=[
+        "canvas_x", "canvas_y", "canvas_width", "canvas_height",
+        "is_primary", "visible", "opacity",
+    ])
+
+    # Aerials remain available but never displace or obscure the clean master
+    # until the user explicitly turns one on.
+    MapLayer.objects.filter(garden=garden).exclude(kind=MapLayerKind.MASTER).update(
+        is_primary=False, visible=False
+    )
+
+
+@require_POST
+@login_required
+def adopt_preserved_master(request):
+    """Adopt the repository's byte-for-byte preserved PNW Home master."""
+    g = garden_for(request)
+    source = MASTER_MAP_PATH.read_bytes()
+    if hashlib.sha256(source).hexdigest() != MASTER_MAP_SHA256:
+        return _map_error(request, "The preserved master map failed its integrity check.")
+
+    existing = MapLayer.objects.filter(
+        garden=g, kind=MapLayerKind.MASTER, source_sha256=MASTER_MAP_SHA256
+    ).first()
+    if existing:
+        _activate_master(g, existing)
+        return redirect("map")
+
+    previous = MapLayer.objects.filter(
+        garden=g, kind=MapLayerKind.MASTER, archived_at__isnull=True
+    ).order_by("-version").first()
+    layer = MapLayer(
+        garden=g,
+        name="Master Property Map",
+        kind=MapLayerKind.MASTER,
+        version=_next_master_version(g),
+        source_sha256=MASTER_MAP_SHA256,
+        immutable_original=True,
+        supersedes=previous,
+        natural_width=1072.0,
+        natural_height=1244.0,
+    )
+    layer.image.save(MASTER_MAP_FILENAME, ContentFile(source), save=False)
+    layer.save()
+    _activate_master(g, layer)
+    return redirect("map")
+
+
+@require_POST
+@login_required
+def master_map_upload(request):
+    """Create and activate a new immutable master version; never overwrite."""
+    g = garden_for(request)
+    image = request.FILES.get("image")
+    if image is None:
+        return _map_error(request, "Choose a revised property map to adopt.")
+    dimensions = _image_dimensions(image)
+    if dimensions is None:
+        return _map_error(request, "That revised map could not be read as an image.")
+
+    digest = hashlib.sha256()
+    for chunk in image.chunks():
+        digest.update(chunk)
+    image.seek(0)
+    previous = MapLayer.objects.filter(
+        garden=g, kind=MapLayerKind.MASTER, archived_at__isnull=True
+    ).order_by("-version").first()
+    version = _next_master_version(g)
+    layer = MapLayer.objects.create(
+        garden=g,
+        name=request.POST.get("name", "").strip() or f"Master Property Map v{version}",
+        image=image,
+        kind=MapLayerKind.MASTER,
+        version=version,
+        source_sha256=digest.hexdigest(),
+        immutable_original=True,
+        supersedes=previous,
+        natural_width=dimensions[0],
+        natural_height=dimensions[1],
+    )
+    _activate_master(g, layer)
+    return redirect("map")
+
+
+@require_POST
+@login_required
+def master_map_activate(request, pk):
+    g = garden_for(request)
+    layer = get_object_or_404(
+        MapLayer,
+        pk=pk,
+        garden=g,
+        kind=MapLayerKind.MASTER,
+        archived_at__isnull=True,
+    )
+    _activate_master(g, layer)
+    return redirect("map")
+
+
+@require_POST
+@login_required
+def reference_layer_toggle(request, pk):
+    g = garden_for(request)
+    layer = get_object_or_404(
+        MapLayer, pk=pk, garden=g, archived_at__isnull=True
+    )
+    if layer.kind != MapLayerKind.MASTER:
+        layer.visible = not layer.visible
+        layer.save(update_fields=["visible"])
+    return redirect("map")

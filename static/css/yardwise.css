@@ -503,3 +503,30 @@ nav.primary a.user-entry .user-name {
   font: 700 12px var(--body);
   padding: 5px;
 }
+
+/* --- versioned property map -------------------------------------------- */
+.map-master-status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: -4px 0 10px;
+}
+.map-version-list { display: grid; gap: 7px; }
+.map-version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.map-version-row:last-child { border-bottom: 0; }
+.map-version-row form { margin: 0; }
+.map-revision-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.map-revision-panel > summary { color: var(--fir); font-weight: 700; cursor: pointer; }

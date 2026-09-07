@@ -4,7 +4,17 @@ import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from garden.models import Bed, Photo, Plant, PlantLocation, PlantStatus, ScheduleKind, Tag, Task
+from garden.models import (
+    Bed,
+    Photo,
+    PhotoCategory,
+    Plant,
+    PlantLocation,
+    PlantStatus,
+    ScheduleKind,
+    Tag,
+    Task,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -435,6 +445,94 @@ def test_plant_photo_library_marks_primary_and_offers_selection(user_client):
 
     assert response.content.count(b"Main photo") == 1
     assert response.content.count(b"Make main photo") == 1
+
+
+def test_plant_photos_offer_lightbox_hover_details_and_context_actions(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    category = PhotoCategory.objects.get(name="Flowers")
+    photo = Photo.objects.create(
+        file=_png(),
+        caption="First fragrant bloom",
+        taken_on=datetime.date(2026, 6, 12),
+    )
+    photo.categories.add(category)
+    plant.photos.add(photo)
+
+    response = user_client.get(reverse("plant-detail", args=[plant.pk]))
+
+    assert response.status_code == 200
+    assert b"data-photo-lightbox" in response.content
+    assert b"js/photo-gallery.js" in response.content
+    assert b"First fragrant bloom" in response.content
+    assert b"Jun 12, 2026" in response.content
+    assert b"Flowers" in response.content
+    assert b"Open full information" in response.content
+    assert b"Edit photo information" in response.content
+    assert b"Zoom in" in response.content
+
+
+def test_plant_photo_detail_shows_full_information(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    category = PhotoCategory.objects.get(name="Whole plant")
+    photo = Photo.objects.create(
+        file=_png(),
+        caption="Vine over the arbor",
+        taken_on=datetime.date(2026, 7, 4),
+    )
+    photo.categories.add(category)
+    plant.photos.add(photo)
+
+    response = user_client.get(
+        reverse("plant-photo-detail", args=[plant.pk, photo.pk])
+    )
+
+    assert response.status_code == 200
+    assert b"Photo information" in response.content
+    assert b"Vine over the arbor" in response.content
+    assert b"July 4, 2026" in response.content
+    assert b"Whole plant" in response.content
+    assert b"Honeysuckle" in response.content
+
+
+def test_plant_photo_information_can_be_edited_without_replacing_file(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    category = PhotoCategory.objects.get(name="Flowers")
+    photo = Photo.objects.create(file=_png(), caption="Old caption")
+    original_name = photo.file.name
+    plant.photos.add(photo)
+
+    response = user_client.post(
+        reverse("plant-photo-edit", args=[plant.pk, photo.pk]),
+        {
+            "caption": "Pink flowers after rain",
+            "taken_on": "2026-08-14",
+            "season": "summer",
+            "year": "2026",
+            "categories": [category.pk],
+        },
+    )
+
+    assert response.status_code == 302
+    photo.refresh_from_db()
+    assert photo.caption == "Pink flowers after rain"
+    assert photo.taken_on == datetime.date(2026, 8, 14)
+    assert photo.season == "summer"
+    assert photo.year == 2026
+    assert list(photo.categories.all()) == [category]
+    assert photo.file.name == original_name
+    assert plant.photos.count() == 1
+
+
+def test_photo_information_pages_require_photo_to_belong_to_plant(user_client):
+    plant = Plant.objects.create(common_name="Honeysuckle")
+    unrelated = Photo.objects.create(file=_png())
+
+    assert user_client.get(
+        reverse("plant-photo-detail", args=[plant.pk, unrelated.pk])
+    ).status_code == 404
+    assert user_client.get(
+        reverse("plant-photo-edit", args=[plant.pk, unrelated.pk])
+    ).status_code == 404
 
 
 def test_additional_photo_page_uses_existing_plant_picker(user_client):

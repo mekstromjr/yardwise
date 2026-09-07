@@ -474,15 +474,49 @@ nav.primary a.user-entry .user-name {
 
 /* --- plant photo library ------------------------------------------------ */
 .photo-library { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-.plant-photo-tile { display: grid; gap: 6px; }
-.plant-photo-tile img {
+.plant-photo-tile { display: grid; gap: 6px; position: relative; min-width: 0; }
+.plant-photo-open {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: white;
+  overflow: hidden;
+  cursor: zoom-in;
+  text-align: left;
+}
+.plant-photo-open > img {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: var(--radius-sm);
+  display: block;
+  transition: transform 180ms ease;
 }
+.plant-photo-open:hover > img,
+.plant-photo-open:focus-visible > img { transform: scale(1.035); }
+.photo-hover-info {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  gap: 2px;
+  padding: 28px 9px 8px;
+  background: linear-gradient(transparent, rgb(24 39 30 / 92%));
+  font: 600 12px/1.25 var(--body);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.photo-hover-info strong { font-size: 13px; }
+.plant-photo-open:hover .photo-hover-info,
+.plant-photo-open:focus-visible .photo-hover-info { opacity: 1; transform: none; }
 .plant-photo-tile form { margin: 0; }
 .plant-photo-actions { display: grid; gap: 2px; text-align: center; }
+.photo-info-links { display: flex; justify-content: center; gap: 10px; font-size: 12px; }
+.photo-info-links a { color: var(--fir); font-weight: 700; }
 .photo-delete-button,
 .photo-main-button {
   width: 100%;
@@ -503,6 +537,83 @@ nav.primary a.user-entry .user-name {
   font: 700 12px var(--body);
   padding: 5px;
 }
+.plant-photo-hero { padding: 0; overflow: hidden; position: relative; }
+.plant-photo-hero-button { border-radius: 0; }
+.plant-photo-hero-button > img {
+  width: 100%;
+  max-height: 340px;
+  aspect-ratio: auto;
+  object-fit: cover;
+}
+.photo-open-hint {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgb(24 39 30 / 82%);
+  font: 700 12px var(--body);
+}
+.photo-context-menu {
+  position: fixed;
+  z-index: 1001;
+  width: 220px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.photo-context-menu a {
+  display: block;
+  padding: 9px 10px;
+  border-radius: 6px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.photo-context-menu a:hover { background: var(--sky-soft); }
+.photo-lightbox {
+  width: min(96vw, 1200px);
+  max-width: none;
+  height: 94vh;
+  padding: 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: #17231b;
+  color: white;
+  overflow: hidden;
+}
+.photo-lightbox::backdrop { background: rgb(0 0 0 / 82%); }
+.photo-lightbox[open] { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; }
+.photo-lightbox-toolbar { display: flex; gap: 7px; align-items: center; }
+.photo-lightbox-close { margin-left: auto; }
+.photo-lightbox-help { color: #d3ddd4; font-size: 12px; text-align: center; }
+.photo-lightbox-stage {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  touch-action: none;
+  border-radius: var(--radius-sm);
+  background: #0b100d;
+}
+.photo-lightbox-stage.is-zoomed { cursor: grab; }
+.photo-lightbox-stage.is-dragging { cursor: grabbing; }
+.photo-lightbox-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  transform-origin: center;
+  transition: transform 120ms ease;
+}
+.photo-lightbox-info { min-height: 1.3em; white-space: pre-line; color: #e9efe9; }
+.photo-detail-card > img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--radius-sm); }
+.photo-metadata { display: grid; gap: 0; margin: 18px 0 0; }
+.photo-metadata > div { display: grid; grid-template-columns: minmax(110px, 0.3fr) 1fr; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.photo-metadata dt { font-weight: 700; }
+.photo-metadata dd { margin: 0; }
+.photo-edit-preview { display: inline-block; }
+.photo-edit-preview img { display: block; width: 180px; max-height: 180px; object-fit: cover; border-radius: var(--radius-sm); }
 
 /* --- versioned property map -------------------------------------------- */
 .map-master-status {

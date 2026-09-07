@@ -214,6 +214,20 @@ class PhotoForm(forms.ModelForm):
         }
 
 
+class PhotoMetadataForm(forms.ModelForm):
+    """Edit a photo's descriptive information without replacing its file."""
+
+    class Meta:
+        from .models import Photo
+
+        model = Photo
+        fields = ["taken_on", "season", "year", "caption", "categories"]
+        widgets = {
+            "taken_on": forms.DateInput(attrs={"type": "date"}),
+            "categories": forms.CheckboxSelectMultiple,
+        }
+
+
 class BedForm(forms.ModelForm):
     class Meta:
         from .models import Bed

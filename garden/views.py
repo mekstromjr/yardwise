@@ -192,7 +192,7 @@ def plant_detail(request, pk):
         "plant": plant,
         "active_problems": active_problems,
         "timeline": timeline,
-        "photos": plant.photos.all()[:24],
+        "photos": plant.photos.prefetch_related("categories").all()[:24],
         "journal_entries": plant.journal_entries.all()[:10],
         "season_total": season_total,
         "year": year,
@@ -443,6 +443,35 @@ def photo_add(request, pk):
         return redirect("plant-detail", pk=plant.pk)
     return render(request, "garden/plants/photo_form.html",
                   {"nav": "plants", "plant": plant, "form": form})
+
+
+@login_required
+def plant_photo_detail(request, pk, photo_pk):
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    photo = get_object_or_404(
+        plant.photos.prefetch_related("categories", "plants"), pk=photo_pk
+    )
+    return render(request, "garden/plants/photo_detail.html", {
+        "nav": "plants",
+        "plant": plant,
+        "photo": photo,
+        "associated_plants": photo.plants.filter(garden=plant.garden).order_by("common_name"),
+    })
+
+
+@login_required
+def plant_photo_edit(request, pk, photo_pk):
+    from .forms import PhotoMetadataForm
+
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    photo = get_object_or_404(plant.photos.all(), pk=photo_pk)
+    form = PhotoMetadataForm(request.POST or None, instance=photo)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("plant-photo-detail", pk=plant.pk, photo_pk=photo.pk)
+    return render(request, "garden/plants/photo_edit.html", {
+        "nav": "plants", "plant": plant, "photo": photo, "form": form,
+    })
 
 
 @login_required

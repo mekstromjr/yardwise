@@ -29,6 +29,16 @@ urlpatterns = [
     path("plants/<int:pk>/harvest/add/", views.harvest_add, name="harvest-add"),
     path("plants/<int:pk>/photos/add/", views.photo_add, name="photo-add"),
     path(
+        "plants/<int:pk>/photos/<int:photo_pk>/",
+        views.plant_photo_detail,
+        name="plant-photo-detail",
+    ),
+    path(
+        "plants/<int:pk>/photos/<int:photo_pk>/edit/",
+        views.plant_photo_edit,
+        name="plant-photo-edit",
+    ),
+    path(
         "plants/<int:pk>/photos/<int:photo_pk>/remove/",
         views.plant_photo_remove,
         name="plant-photo-remove",

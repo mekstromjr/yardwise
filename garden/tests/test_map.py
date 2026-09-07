@@ -1,10 +1,12 @@
+import hashlib
 import json
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from garden.models import Bed, Plant, PlantLocation, PropertyMap
+from garden.models import Bed, MapLayer, MapLayerKind, Plant, PlantLocation, PropertyMap
 
 pytestmark = pytest.mark.django_db
 
@@ -132,6 +134,147 @@ def test_map_page_renders_with_focus(user_client):
     assert b"Outline a new bed" in r.content
     assert b"Drag a photo here" in r.content
     assert b"choose from Photos or files" in r.content
+    assert b"Master Property Map" in r.content
+    assert b"Use the preserved Master Property Map" in r.content
+
+
+def test_preserved_master_asset_is_exact_and_adopts_locked(user_client):
+    from garden.views_map import MASTER_MAP_PATH, MASTER_MAP_SHA256
+
+    source = MASTER_MAP_PATH.read_bytes()
+    assert hashlib.sha256(source).hexdigest() == MASTER_MAP_SHA256
+
+    response = user_client.post(reverse("map-master-adopt-preserved"))
+
+    assert response.status_code == 302
+    layer = MapLayer.objects.get(kind=MapLayerKind.MASTER)
+    assert layer.name == "Master Property Map"
+    assert layer.version == 1
+    assert layer.is_primary and layer.visible and layer.immutable_original
+    assert layer.source_sha256 == MASTER_MAP_SHA256
+    assert (layer.natural_width, layer.natural_height) == (1072.0, 1244.0)
+    with layer.image.open("rb") as installed:
+        assert installed.read() == source
+    pmap = _pmap(user_client)
+    assert (pmap.width, pmap.height) == (1072.0, 1244.0)
+    assert not pmap.grid_visible
+
+
+def test_master_adoption_preserves_existing_geometry(user_client):
+    pmap = _pmap(user_client)
+    pmap.width, pmap.height = 1280, 900
+    pmap.save(update_fields=["width", "height"])
+    bed = Bed.objects.create(
+        name="Existing bed", boundary=[[100, 100], [300, 100], [300, 300]]
+    )
+    plant = Plant.objects.create(common_name="Existing rose")
+    location = PlantLocation.objects.create(plant=plant, point_x=175, point_y=220)
+
+    user_client.post(reverse("map-master-adopt-preserved"))
+
+    pmap.refresh_from_db()
+    bed.refresh_from_db()
+    location.refresh_from_db()
+    assert (pmap.width, pmap.height) == (1280, 900)
+    assert bed.boundary == [[100, 100], [300, 100], [300, 300]]
+    assert (location.point_x, location.point_y) == (175, 220)
+    master = MapLayer.objects.get(kind=MapLayerKind.MASTER)
+    assert master.canvas_width <= pmap.width
+    assert master.canvas_height <= pmap.height
+
+
+def test_future_master_is_new_version_without_moving_geometry(user_client):
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    user_client.post(reverse("map-master-adopt-preserved"))
+    first = MapLayer.objects.get(kind=MapLayerKind.MASTER)
+    Bed.objects.create(name="Pinned", boundary=[[10, 10], [20, 10], [20, 20]])
+    before = (_pmap(user_client).width, _pmap(user_client).height)
+    buf = io.BytesIO()
+    Image.new("RGB", (800, 600), "white").save(buf, "PNG")
+
+    response = user_client.post(reverse("map-master-upload"), {
+        "name": "Paths revised",
+        "image": SimpleUploadedFile("revision.png", buf.getvalue(), "image/png"),
+    })
+
+    assert response.status_code == 302
+    first.refresh_from_db()
+    second = MapLayer.objects.get(kind=MapLayerKind.MASTER, version=2)
+    assert second.is_primary and second.visible and second.immutable_original
+    assert second.supersedes == first
+    assert not first.is_primary and not first.visible
+    assert (_pmap(user_client).width, _pmap(user_client).height) == before
+
+    response = user_client.post(reverse("map-master-activate", args=[first.pk]))
+    assert response.status_code == 302
+    first.refresh_from_db()
+    second.refresh_from_db()
+    assert first.is_primary and first.visible
+    assert not second.is_primary and not second.visible
+    assert (_pmap(user_client).width, _pmap(user_client).height) == before
+
+
+def test_locked_master_source_cannot_be_overwritten(user_client):
+    user_client.post(reverse("map-master-adopt-preserved"))
+    layer = MapLayer.objects.get(kind=MapLayerKind.MASTER)
+    layer.image = "map/replacement.png"
+
+    with pytest.raises(ValidationError, match="cannot be overwritten"):
+        layer.save()
+
+
+def test_aerial_added_after_master_stays_hidden_reference(user_client):
+    user_client.post(reverse("map-master-adopt-preserved"))
+
+    _upload_png(user_client, "historical aerial", 640, 480)
+
+    master = MapLayer.objects.get(kind=MapLayerKind.MASTER)
+    aerial = MapLayer.objects.get(kind=MapLayerKind.AERIAL)
+    assert master.is_primary and master.visible
+    assert not aerial.is_primary and not aerial.visible
+
+
+def test_map_data_identifies_master_and_uses_fixed_canvas_bounds(user_client):
+    user_client.post(reverse("map-master-adopt-preserved"))
+
+    data = user_client.get(reverse("map-data")).json()
+
+    master = data["layers"][0]
+    assert master["kind"] == "master" and master["version"] == 1
+    assert master["render_w"] == 1072.0 and master["render_h"] == 1244.0
+
+
+def test_master_and_reference_actions_are_post_only_and_garden_scoped(user_client):
+    from garden.models import Garden
+
+    other_owner = User.objects.create_user("other")
+    other_garden = Garden.for_user(other_owner)
+    other_master = MapLayer.objects.create(
+        garden=other_garden,
+        name="Other master",
+        image="map/other.png",
+        kind=MapLayerKind.MASTER,
+        version=1,
+        is_primary=True,
+    )
+    other_reference = MapLayer.objects.create(
+        garden=other_garden,
+        name="Other aerial",
+        image="map/other-aerial.png",
+        kind=MapLayerKind.AERIAL,
+    )
+
+    assert user_client.get(reverse("map-master-adopt-preserved")).status_code == 405
+    assert user_client.post(
+        reverse("map-master-activate", args=[other_master.pk])
+    ).status_code == 404
+    assert user_client.post(
+        reverse("map-layer-toggle", args=[other_reference.pk])
+    ).status_code == 404
 
 
 def test_map_photo_upload_without_image_shows_friendly_error(user_client):

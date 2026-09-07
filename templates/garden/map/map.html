@@ -7,16 +7,65 @@
   <div class="kicker">The property</div>
   <h1>Map</h1>
   <div class="sub" id="map-status">
-    {% if not layers %}Upload an aerial photo to begin - it becomes the map's canvas.{% else %}Tap a bed or marker to identify it.{% endif %}
+    {% if active_master %}Clean master map · details appear as you zoom or select a bed.{% elif not layers %}Adopt the preserved Master Property Map to begin.{% else %}Tap a bed or marker to identify it.{% endif %}
   </div>
 </header>
 
 {% if error %}<div class="card" style="color:var(--terracotta); font-weight:700">{{ error }}</div>{% endif %}
+{% if active_master %}
+<div class="map-master-status">
+  <span class="chip">Master Property Map · v{{ active_master.version }}</span>
+  <span class="help">Locked original · interactive geometry is stored separately</span>
+</div>
+{% endif %}
 <div id="map" style="height:62vh; border-radius:var(--radius); border:1px solid var(--line); background:var(--sky-soft)"></div>
 
 <details class="section" style="margin-top:12px">
   <summary>Edit the map</summary>
   <div class="inner">
+    <div class="field">
+      <strong>Master Property Map</strong>
+      <div class="help">The master is the clean base and is never modified. Beds, plants, paths, and other records remain separate overlays in a permanent coordinate space.</div>
+    </div>
+    {% if not bundled_master_installed %}
+      <form method="post" action="{% url 'map-master-adopt-preserved' %}" class="field">
+        {% csrf_token %}
+        <button class="btn small" type="submit">Use the preserved Master Property Map</button>
+        <div class="help">Installs the exact approved PNW Home image (integrity checked and locked).</div>
+      </form>
+    {% endif %}
+    {% if master_versions %}
+      <div class="field map-version-list">
+        <strong>Map versions</strong>
+        {% for version in master_versions %}
+          <div class="map-version-row">
+            <span>v{{ version.version }} · {{ version.name }}</span>
+            {% if version.is_primary %}
+              <span class="chip">Current</span>
+            {% else %}
+              <form method="post" action="{% url 'map-master-activate' version.pk %}">
+                {% csrf_token %}
+                <button class="btn small secondary" type="submit">Make current</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <details class="map-revision-panel">
+      <summary>Adopt a future revised master map</summary>
+      <div class="inner">
+        <p class="help">A revision becomes a new locked version. Existing bed boundaries and plant locations stay in the same coordinate system and are never moved automatically.</p>
+        <form method="post" action="{% url 'map-master-upload' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="field"><label for="master-map-image">Revised map image</label>
+            <input id="master-map-image" type="file" name="image" accept="image/*" required></div>
+          <div class="field"><label for="master-map-name">Version note or name</label>
+            <input id="master-map-name" type="text" name="name" placeholder="e.g. Paths revised September 2027"></div>
+          <button class="btn small secondary" type="submit">Adopt as new master version</button>
+        </form>
+      </div>
+    </details>
     <div class="field">
       <strong>Garden beds</strong>
       <div class="help">Outline a new bed directly on the map, then name it when the shape is finished.</div>
@@ -72,8 +121,8 @@
       <button class="btn small secondary" type="submit">Fetch satellite image</button>
     </form>
     <div class="field">
-      <strong>Aerial or reference photo</strong>
-      <div class="help">Use a photo from your library, or drag one here from Photos.</div>
+      <strong>Aerial or historical reference photo</strong>
+      <div class="help">These remain optional reference layers and never replace or move the master map.</div>
     </div>
     <form method="post" action="{% url 'map-layer-upload' %}" enctype="multipart/form-data"
           class="map-photo-upload" id="map-photo-upload">
@@ -91,6 +140,18 @@
         <button class="btn small secondary" id="map-photo-submit" type="submit">Use this photo</button>
       </div>
     </form>
+    {% if reference_layers %}
+      <div class="field map-version-list">
+        <strong>Reference imagery</strong>
+        {% for layer in reference_layers %}
+          <form method="post" action="{% url 'map-layer-toggle' layer.pk %}" class="map-version-row">
+            {% csrf_token %}
+            <span>{{ layer.name }}</span>
+            <button class="btn small secondary" type="submit">{% if layer.visible %}Hide{% else %}Show{% endif %}</button>
+          </form>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
 </details>
 <p class="meta" style="color:var(--ink-soft); font-size:12px">Satellite imagery © Esri World Imagery; geocoding © OpenStreetMap contributors.</p>

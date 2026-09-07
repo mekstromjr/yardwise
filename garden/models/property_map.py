@@ -12,7 +12,14 @@ geometry, never stored (R-013, and consistent with materialize-vs-derive:
 geometry is the stored truth, grid references derive from it).
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
+
+
+class MapLayerKind(models.TextChoices):
+    MASTER = "master", "Master property map"
+    AERIAL = "aerial", "Aerial / historical imagery"
+    REFERENCE = "reference", "Other reference imagery"
 
 
 class PropertyMap(models.Model):
@@ -87,6 +94,15 @@ class MapLayer(models.Model):
     )
     name = models.CharField(max_length=100)
     image = models.ImageField(upload_to=aerial_upload_path)
+    kind = models.CharField(
+        max_length=12, choices=MapLayerKind.choices, default=MapLayerKind.REFERENCE
+    )
+    version = models.PositiveSmallIntegerField(null=True, blank=True)
+    source_sha256 = models.CharField(max_length=64, blank=True, editable=False)
+    immutable_original = models.BooleanField(default=False)
+    supersedes = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="revisions"
+    )
     is_primary = models.BooleanField(default=False)
     visible = models.BooleanField(default=True)
     opacity = models.FloatField(default=1.0)
@@ -95,11 +111,55 @@ class MapLayer(models.Model):
     # stretching it to the space's bounds.
     natural_width = models.FloatField(null=True, blank=True)
     natural_height = models.FloatField(null=True, blank=True)
+    # Placement within the permanent property coordinate canvas. A future
+    # master revision is aligned here; established geometry never moves.
+    canvas_x = models.FloatField(null=True, blank=True)
+    canvas_y = models.FloatField(null=True, blank=True)
+    canvas_width = models.FloatField(null=True, blank=True)
+    canvas_height = models.FloatField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-is_primary", "-uploaded_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["garden", "version"],
+                condition=models.Q(kind=MapLayerKind.MASTER),
+                name="unique_master_map_version_per_garden",
+            ),
+            models.UniqueConstraint(
+                fields=["garden"],
+                condition=(
+                    models.Q(kind=MapLayerKind.MASTER, is_primary=True)
+                    & models.Q(archived_at__isnull=True)
+                ),
+                name="one_active_master_map_per_garden",
+            ),
+        ]
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        """A locked master keeps its exact source bytes and identity forever.
+
+        Visibility and canvas alignment may change, but replacing the file or
+        rewriting its recorded fingerprint always creates a new version.
+        """
+        if self.pk:
+            original = type(self).objects.filter(pk=self.pk).first()
+            if original and original.immutable_original:
+                protected = (
+                    "image", "kind", "version", "source_sha256",
+                    "natural_width", "natural_height", "supersedes_id",
+                )
+                changed = [
+                    field for field in protected
+                    if str(getattr(self, field)) != str(getattr(original, field))
+                ]
+                if changed:
+                    raise ValidationError(
+                        "A locked master map cannot be overwritten; adopt a new version instead."
+                    )
+        super().save(*args, **kwargs)

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ plant }} - YardWise{% endblock %}
 {% block content %}
 <header class="page-head">
@@ -13,9 +14,22 @@
 </header>
 
 {% if plant.primary_photo %}
-<div class="card" style="padding:0; overflow:hidden">
-  <img src="{{ plant.primary_photo.web_url }}" alt="{{ plant }}"
-       style="width:100%; max-height:340px; object-fit:cover; display:block">
+<div class="card plant-photo-hero plant-photo-surface">
+  <button type="button" class="plant-photo-open plant-photo-hero-button"
+          data-photo-open data-photo-src="{{ plant.primary_photo.web_url }}"
+          data-photo-alt="{{ plant.primary_photo.caption|default:plant }}">
+    <img src="{{ plant.primary_photo.web_url }}" alt="{{ plant }}">
+    <span class="photo-hover-info">
+      {% if plant.primary_photo.caption %}<strong>{{ plant.primary_photo.caption }}</strong>{% endif %}
+      {% if plant.primary_photo.taken_on %}<span>{{ plant.primary_photo.taken_on|date:"M j, Y" }}</span>{% endif %}
+      {% for category in plant.primary_photo.categories.all %}<span>{{ category.name }}</span>{% endfor %}
+    </span>
+    <span class="photo-open-hint">Click to enlarge and zoom</span>
+  </button>
+  <nav class="photo-context-menu" data-photo-menu aria-label="Photo options" hidden>
+    <a href="{% url 'plant-photo-detail' plant.pk plant.primary_photo.pk %}">Open full information</a>
+    <a href="{% url 'plant-photo-edit' plant.pk plant.primary_photo.pk %}">Edit photo information</a>
+  </nav>
 </div>
 {% endif %}
 
@@ -41,10 +55,33 @@
   <h2>Photos</h2>
   <div class="plant-grid photo-library">
     {% for photo in photos %}
-      <div class="plant-photo-tile">
-        <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy"
-             title="{{ photo.taken_on|default:'' }} {{ photo.caption }}">
+      <div class="plant-photo-tile plant-photo-surface">
+        <button type="button" class="plant-photo-open" data-photo-open
+                data-photo-src="{{ photo.web_url }}"
+                data-photo-alt="{{ photo.caption|default:plant }}"
+                aria-label="Enlarge photo{% if photo.caption %}: {{ photo.caption }}{% endif %}">
+          <img src="{{ photo.thumb_url }}" alt="{{ photo.caption|default:plant }}" loading="lazy">
+          <span class="photo-hover-info">
+            {% if photo.caption %}<strong>{{ photo.caption }}</strong>{% endif %}
+            {% if photo.taken_on %}<span>{{ photo.taken_on|date:"M j, Y" }}</span>{% endif %}
+            {% if photo.season or photo.year %}
+              <span>{{ photo.get_season_display }}{% if photo.year %} {{ photo.year }}{% endif %}</span>
+            {% endif %}
+            {% for category in photo.categories.all %}<span>{{ category.name }}</span>{% endfor %}
+            {% if not photo.caption and not photo.taken_on and not photo.season and not photo.year and not photo.categories.all %}
+              <span>No details added yet</span>
+            {% endif %}
+          </span>
+        </button>
+        <nav class="photo-context-menu" data-photo-menu aria-label="Photo options" hidden>
+          <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Open full information</a>
+          <a href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit photo information</a>
+        </nav>
         <div class="plant-photo-actions">
+          <div class="photo-info-links">
+            <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Details</a>
+            <a href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit</a>
+          </div>
           {% if plant.primary_photo_id == photo.pk %}
             <span class="main-photo-label">Main photo</span>
           {% else %}
@@ -134,4 +171,18 @@
     </form>
   </div>
 </details>
+<dialog class="photo-lightbox" data-photo-lightbox aria-label="Photo viewer">
+  <div class="photo-lightbox-toolbar">
+    <button type="button" class="btn small secondary" data-photo-zoom-out aria-label="Zoom out">−</button>
+    <button type="button" class="btn small secondary" data-photo-zoom-reset>100%</button>
+    <button type="button" class="btn small secondary" data-photo-zoom-in aria-label="Zoom in">+</button>
+    <button type="button" class="btn small secondary photo-lightbox-close" data-photo-close>Close</button>
+  </div>
+  <div class="photo-lightbox-help">Scroll or use +/− to zoom. Drag a zoomed photo to move around it.</div>
+  <div class="photo-lightbox-stage" data-photo-stage>
+    <img data-photo-lightbox-image alt="">
+  </div>
+  <div class="photo-lightbox-info" data-photo-lightbox-info></div>
+</dialog>
+<script src="{% static 'js/photo-gallery.js' %}" defer></script>
 {% endblock %}

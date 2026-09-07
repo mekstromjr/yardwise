@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Photo information - {{ plant }} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ plant }}</div>
+  <h1>Photo information</h1>
+  <div class="sub">The original photo is unchanged.</div>
+</header>
+
+<section class="card photo-detail-card">
+  <img src="{{ photo.web_url }}" alt="{{ photo.caption|default:plant }}">
+  <dl class="photo-metadata">
+    <div><dt>Caption</dt><dd>{{ photo.caption|default:"No caption" }}</dd></div>
+    <div><dt>Taken on</dt><dd>{{ photo.taken_on|date:"F j, Y"|default:"Unknown" }}</dd></div>
+    <div><dt>Season</dt><dd>{{ photo.get_season_display|default:"Not set" }}</dd></div>
+    <div><dt>Year</dt><dd>{{ photo.year|default:"Not set" }}</dd></div>
+    <div>
+      <dt>Categories</dt>
+      <dd>{% for category in photo.categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}</dd>
+    </div>
+    <div>
+      <dt>Associated plants</dt>
+      <dd>{% for associated in associated_plants %}{{ associated }}{% if not forloop.last %}, {% endif %}{% empty %}{{ plant }}{% endfor %}</dd>
+    </div>
+    <div><dt>Uploaded</dt><dd>{{ photo.uploaded_at|date:"F j, Y, g:i a" }}</dd></div>
+  </dl>
+</section>
+
+<div class="quick-actions">
+  <a class="btn" href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit photo information</a>
+  <a class="btn secondary" href="{% url 'plant-detail' plant.pk %}">Back to {{ plant }}</a>
+</div>
+{% endblock %}

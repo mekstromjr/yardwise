@@ -1,5 +1,9 @@
 # PNW Home YardWise
 
+> **Read-only mirror.** This project is developed on a self-hosted GitLab instance and
+> mirrored to GitHub for visibility. Issues and pull requests are not accepted here;
+> the mirror is overwritten on every push. Contact: see the profile of [@mekstromjr](https://github.com/mekstromjr).
+
 *Know your yard. Grow it wisely.*
 
 A self-hosted, phone-first yard and plant management application: a photo-forward

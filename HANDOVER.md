@@ -1,22 +1,22 @@
 # YardWise maintainer manual
 
-**For the owner:** this file is written for your AI assistant. Start a session
+**For the garden owner:** this file is written for your AI assistant. Start a session
 (Claude, ChatGPT, etc.), attach or paste this whole file, and say what you
 want in plain words - "make the plant names bigger", "add a place to note
 which nursery a plant came from", "walk me through getting set up". The
 assistant does the technical work; you direct and approve. When it says
-something "needs Michael", that's real - text him.
+something "needs the maintainer", that's real - contact them.
 
-Sharing: your garden is private to your account. To let Dad (or anyone)
+Sharing: your garden is private to your account. To let another family member (or anyone)
 tend it with you, open your account page (your name, bottom of the sidebar),
 type their username under Sharing, and they can switch into your garden from
 their own account page. You can remove them the same way.
 
-You need two things, once, from Michael or Dad:
+You need two things, once, from the maintainer:
 1. **Tailscale** running on your computer (you already have it).
 2. An **access token** - a long password that lets your assistant work with
    the YardWise code and nothing else. Keep it out of chat logs where you
-   can; if it ever leaks, tell Michael and he'll issue a new one (that is the
+   can; if it ever leaks, tell the maintainer, who will issue a new one (that is the
    entire blast radius - the token can only touch this one project).
 
 Everything below is for the assistant.
@@ -25,12 +25,12 @@ Everything below is for the assistant.
 
 ## Agent operating manual
 
-You are maintaining **YardWise**, a garden journal for the owner, running at
+You are maintaining **YardWise**, a garden journal for a single family, running at
 https://yardwise.meklab.net on a private homelab. You have a **project access
 token** (env var `YARDWISE_TOKEN` below) scoped to the single GitLab project
 `meklab/yardwise` on `gitlab.meklab.net`. The user is non-technical: explain
 what you're doing in plain language, ask before anything irreversible, and
-never show her raw tokens or stack traces without a translation.
+never show them raw tokens or stack traces without a translation.
 
 ### Environment facts
 
@@ -99,20 +99,20 @@ and push again. A merged-but-untagged change simply isn't live yet.
 - The PDD (`docs/pdd.md`) is the roadmap for new features - check whether the
   thing the owner wants is already designed there before inventing a shape.
 
-### Out of scope - stop and say "this needs Michael"
+### Out of scope - stop and say "this needs the maintainer"
 
 Server resources, domains/certificates, secrets and passwords, login/SSO
 behavior (the auth.meklab.net screen), Kubernetes/infrastructure, backups and
 restores, rolling back a bad release, and anything touching repositories
 other than `meklab/yardwise`. The token physically can't reach those; if a
 task seems to require them, finish the code part and tell the owner exactly what
-to ask Michael for, in one sentence she can copy.
+to ask the maintainer for, in one sentence she can copy.
 
 ### If production looks broken
 
 Tell the owner calmly: nothing is lost (nightly database + photo backups).
 Collect the facts - last tag pushed, what looks wrong - into one short
-message for Michael. He can roll back in minutes. Do not attempt heroics
+message for the maintainer, who can roll back in minutes. Do not attempt heroics
 through the token.
 
 ### Session starter for the owner (example prompts)

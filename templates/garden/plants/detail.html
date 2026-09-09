@@ -78,6 +78,26 @@
 </section>
 {% endif %}
 
+{% if plant.spring_care or plant.summer_care or plant.fall_care or plant.winter_care or plant.pruning_recommendations or plant.problems_to_watch %}
+<section class="card plant-care-card">
+  <h2>Seasonal care</h2>
+  {% if plant.spring_care or plant.summer_care or plant.fall_care or plant.winter_care %}
+    <div class="seasonal-care-grid">
+      {% if plant.spring_care %}<article class="seasonal-care-item"><h3>Spring</h3><p>{{ plant.spring_care|linebreaksbr }}</p></article>{% endif %}
+      {% if plant.summer_care %}<article class="seasonal-care-item"><h3>Summer</h3><p>{{ plant.summer_care|linebreaksbr }}</p></article>{% endif %}
+      {% if plant.fall_care %}<article class="seasonal-care-item"><h3>Fall</h3><p>{{ plant.fall_care|linebreaksbr }}</p></article>{% endif %}
+      {% if plant.winter_care %}<article class="seasonal-care-item"><h3>Winter</h3><p>{{ plant.winter_care|linebreaksbr }}</p></article>{% endif %}
+    </div>
+  {% endif %}
+  {% if plant.pruning_recommendations %}
+    <div class="care-guidance"><h3>Pruning recommendations</h3><p>{{ plant.pruning_recommendations|linebreaksbr }}</p></div>
+  {% endif %}
+  {% if plant.problems_to_watch %}
+    <div class="care-guidance"><h3>Problems to watch for</h3><p>{{ plant.problems_to_watch|linebreaksbr }}</p></div>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if photos %}
 <section class="card">
   <h2>Photos</h2>

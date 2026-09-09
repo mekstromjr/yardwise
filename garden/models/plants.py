@@ -72,6 +72,35 @@ class Plant(models.Model):
     fertilize_window = models.ForeignKey(
         SeasonWindow, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
+    spring_care = models.TextField(
+        blank=True,
+        verbose_name="spring care",
+        help_text="What to do in spring, including feeding, cleanup, watering, or support.",
+    )
+    summer_care = models.TextField(
+        blank=True,
+        verbose_name="summer care",
+        help_text="What to do in summer, including watering, deadheading, or harvest care.",
+    )
+    fall_care = models.TextField(
+        blank=True,
+        verbose_name="fall care",
+        help_text="What to do in fall, including cleanup, dividing, planting, or protection.",
+    )
+    winter_care = models.TextField(
+        blank=True,
+        verbose_name="winter care",
+        help_text="What to do in winter, including dormancy care and weather protection.",
+    )
+    pruning_recommendations = models.TextField(
+        blank=True,
+        help_text="When and how to prune this plant, including important cautions.",
+    )
+    problems_to_watch = models.TextField(
+        blank=True,
+        verbose_name="problems to watch for",
+        help_text="Likely pests, diseases, or stress signs and what to look for.",
+    )
     toxicity_notes = models.TextField(blank=True)
 
     # --- specimen ---

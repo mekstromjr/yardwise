@@ -81,6 +81,18 @@
   </details>
 
   <details class="section">
+    <summary>Seasonal care, pruning & problems</summary>
+    <div class="inner">
+      <p class="help">Write your own recommendations here, or use Fill Details with AI from the saved plant profile.</p>
+      {% for field in form.seasonal_care %}
+        <div class="field">{{ field.label_tag }}{{ field }}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </details>
+
+  <details class="section">
     <summary>Safety & notes</summary>
     <div class="inner">
       {% for field in form.notes_fields %}

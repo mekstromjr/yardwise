@@ -16,7 +16,7 @@
     <div class="row">
       <input type="checkbox" name="accept_{{ field }}" id="f-{{ field }}" checked style="width:auto">
       <label for="f-{{ field }}" class="grow" style="margin:0">
-        <span class="meta">{{ label }}</span><br>{{ value }}</label>
+        <span class="meta">{{ label }}</span><br><span class="ai-suggestion-value">{{ value }}</span></label>
     </div>
   {% endfor %}
   {% include "garden/ai/_sources.html" %}
@@ -28,8 +28,9 @@
 {% else %}
 <form method="post" class="card">
   {% csrf_token %}
-  <p>Ask the assistant to propose values for this plant's empty fields
-     (sun, water, size, toxicity...). You review each one before it's saved.</p>
+  <p>Ask the assistant to propose values for this plant's empty fields, including
+     seasonal care, pruning recommendations, and problems to watch for. You review
+     each suggestion before anything is saved.</p>
   <button class="btn" type="submit">Get suggestions</button>
 </form>
 {% endif %}

@@ -507,6 +507,30 @@ nav.primary a.user-entry .user-name {
   .plant-profile-nav-arrow { font-size: 24px; }
   .plant-profile-position { font-size: 11px; }
 }
+.ai-suggestion-value { white-space: pre-line; }
+.seasonal-care-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.seasonal-care-item {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.seasonal-care-item h3,
+.care-guidance h3 { margin: 0 0 6px; }
+.seasonal-care-item p,
+.care-guidance p { margin: 0; }
+.care-guidance {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 620px) {
+  .seasonal-care-grid { grid-template-columns: 1fr; }
+}
 .photo-library { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 .plant-photo-tile { display: grid; gap: 6px; position: relative; min-width: 0; }
 .plant-photo-open {

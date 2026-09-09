@@ -13,6 +13,34 @@
   </div>
 </header>
 
+<nav class="plant-profile-nav" aria-label="Browse plant profiles">
+  {% if previous_plant %}
+    <a class="plant-profile-nav-link previous" href="{% url 'plant-detail' previous_plant.pk %}"
+       aria-label="Previous plant: {{ previous_plant }}">
+      <span class="plant-profile-nav-arrow" aria-hidden="true">←</span>
+      <span class="plant-profile-nav-copy"><small>Previous plant</small><strong>{{ previous_plant }}</strong></span>
+    </a>
+  {% else %}
+    <span class="plant-profile-nav-link previous is-disabled" aria-disabled="true">
+      <span class="plant-profile-nav-arrow" aria-hidden="true">←</span>
+      <span class="plant-profile-nav-copy"><small>Previous plant</small><strong>Start of list</strong></span>
+    </span>
+  {% endif %}
+  <span class="plant-profile-position">{{ plant_position }} of {{ plant_count }}</span>
+  {% if next_plant %}
+    <a class="plant-profile-nav-link next" href="{% url 'plant-detail' next_plant.pk %}"
+       aria-label="Next plant: {{ next_plant }}">
+      <span class="plant-profile-nav-copy"><small>Next plant</small><strong>{{ next_plant }}</strong></span>
+      <span class="plant-profile-nav-arrow" aria-hidden="true">→</span>
+    </a>
+  {% else %}
+    <span class="plant-profile-nav-link next is-disabled" aria-disabled="true">
+      <span class="plant-profile-nav-copy"><small>Next plant</small><strong>End of list</strong></span>
+      <span class="plant-profile-nav-arrow" aria-hidden="true">→</span>
+    </span>
+  {% endif %}
+</nav>
+
 {% if plant.primary_photo %}
 <div class="card plant-photo-hero plant-photo-surface">
   <button type="button" class="plant-photo-open plant-photo-hero-button"

@@ -172,6 +172,38 @@ def test_plant_detail_explains_archive_and_confirms_delete(user_client):
     assert b"This cannot be undone" in response.content
 
 
+def test_plant_detail_has_alphabetical_previous_and_next_navigation(user_client):
+    apple = Plant.objects.create(common_name="Apple")
+    bee_balm = Plant.objects.create(common_name="Bee Balm")
+    cedar = Plant.objects.create(common_name="Cedar")
+    archived = Plant.objects.create(common_name="Aardvark Fern", status=PlantStatus.ARCHIVED)
+
+    response = user_client.get(reverse("plant-detail", args=[bee_balm.pk]))
+
+    assert response.status_code == 200
+    assert response.context["previous_plant"] == apple
+    assert response.context["next_plant"] == cedar
+    assert response.context["plant_position"] == 2
+    assert response.context["plant_count"] == 3
+    assert reverse("plant-detail", args=[apple.pk]).encode() in response.content
+    assert reverse("plant-detail", args=[cedar.pk]).encode() in response.content
+    assert b"Previous plant: Apple" in response.content
+    assert b"Next plant: Cedar" in response.content
+    assert archived.common_name.encode() not in response.content
+
+
+def test_plant_profile_navigation_stops_at_the_ends(user_client):
+    apple = Plant.objects.create(common_name="Apple")
+    Plant.objects.create(common_name="Bee Balm")
+
+    response = user_client.get(reverse("plant-detail", args=[apple.pk]))
+
+    assert response.context["previous_plant"] is None
+    assert response.context["next_plant"].common_name == "Bee Balm"
+    assert b"Start of list" in response.content
+    assert b"1 of 2" in response.content
+
+
 def test_plant_filters_ignore_invalid_url_values(user_client):
     Plant.objects.create(common_name="Pear")
 

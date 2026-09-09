@@ -66,6 +66,8 @@ def test_enrichment_fills_only_empty_and_selected_fields(user_client, monkeypatc
     plant = Plant.objects.create(common_name="Blueberry", sun="full")  # sun populated
     monkeypatch.setattr(ai, "enrich", lambda *a, **k: {
         "water_needs": "moderate", "mature_height": "4-6 ft",
+        "spring_care": "Mulch after the soil warms.",
+        "problems_to_watch": "Watch new growth for aphids.",
     })
     r = user_client.post(reverse("plant-enrich", args=[plant.pk]))
     assert b"4-6 ft" in r.content  # review screen
@@ -73,13 +75,40 @@ def test_enrichment_fills_only_empty_and_selected_fields(user_client, monkeypatc
     # accept only water_needs
     user_client.post(reverse("plant-enrich", args=[plant.pk]), {
         "apply": "1", "suggestion": s.pk, "accept_water_needs": "on",
+        "accept_spring_care": "on", "accept_problems_to_watch": "on",
     })
     plant.refresh_from_db()
     assert plant.water_needs == "moderate"
     assert plant.mature_height == ""  # not selected
     assert plant.sun == "full"  # untouched
+    assert plant.spring_care == "Mulch after the soil warms."
+    assert plant.problems_to_watch == "Watch new growth for aphids."
     s.refresh_from_db()
-    assert s.accepted_fields == ["water_needs"]
+    assert s.accepted_fields == ["water_needs", "spring_care", "problems_to_watch"]
+
+
+def test_enrichment_requests_practical_care_and_preserves_existing_text(monkeypatch):
+    plant = Plant(common_name="Blueberry", sun="full", spring_care="User's spring notes")
+    captured = {}
+
+    def fake_complete(messages, **kwargs):
+        captured["messages"] = messages
+        return ('{"spring_care": "Replace it", "summer_care": "Water deeply.", '
+                '"pruning_recommendations": "Remove old canes in late winter.", '
+                '"problems_to_watch": "Watch for mummy berry."}', [])
+
+    monkeypatch.setattr(ai, "complete", fake_complete)
+    proposed = ai.enrich(plant, region="Pacific Northwest")
+
+    assert "spring_care" not in proposed
+    assert proposed["summer_care"] == "Water deeply."
+    assert "late winter" in proposed["pruning_recommendations"]
+    assert proposed["problems_to_watch"] == "Watch for mummy berry."
+    prompt = captured["messages"][0]["content"]
+    assert "when and how to prune" in prompt
+    assert "early signs" in prompt
+    requested_fields = prompt.split("containing at most these keys:", 1)[1].split("Omit", 1)[0]
+    assert "spring_care" not in requested_fields
 
 
 def test_enrich_choice_constraints_exist():

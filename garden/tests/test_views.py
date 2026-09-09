@@ -172,6 +172,45 @@ def test_plant_detail_explains_archive_and_confirms_delete(user_client):
     assert b"This cannot be undone" in response.content
 
 
+def test_plant_edit_saves_free_text_care_recommendations(user_client):
+    plant = Plant.objects.create(common_name="Blueberry")
+    payload = {
+        "common_name": "Blueberry",
+        "planted_precision": "exact",
+        "is_ornamental": "on",
+        "spring_care": "Top-dress with compost after bloom.",
+        "summer_care": "Water deeply during fruit development.",
+        "fall_care": "Refresh mulch before cold weather.",
+        "winter_care": "Inspect for broken branches.",
+        "pruning_recommendations": "Remove the oldest canes in late winter.",
+        "problems_to_watch": "Watch for mummy berry and spotted leaves.",
+    }
+
+    response = user_client.post(reverse("plant-edit", args=[plant.pk]), payload)
+
+    assert response.status_code == 302
+    plant.refresh_from_db()
+    assert plant.spring_care == payload["spring_care"]
+    assert plant.pruning_recommendations == payload["pruning_recommendations"]
+    assert plant.problems_to_watch == payload["problems_to_watch"]
+
+
+def test_plant_detail_shows_seasonal_care_pruning_and_problems(user_client):
+    plant = Plant.objects.create(
+        common_name="Blueberry",
+        spring_care="Top-dress with compost.",
+        pruning_recommendations="Prune in late winter.",
+        problems_to_watch="Watch for mummy berry.",
+    )
+
+    response = user_client.get(reverse("plant-detail", args=[plant.pk]))
+
+    assert b"Seasonal care" in response.content
+    assert b"Top-dress with compost" in response.content
+    assert b"Pruning recommendations" in response.content
+    assert b"Problems to watch for" in response.content
+
+
 def test_plant_detail_has_alphabetical_previous_and_next_navigation(user_client):
     apple = Plant.objects.create(common_name="Apple")
     bee_balm = Plant.objects.create(common_name="Bee Balm")

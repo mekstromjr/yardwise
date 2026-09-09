@@ -42,11 +42,19 @@ class PlantForm(forms.ModelForm):
             "planted_on", "planted_precision", "source",
             "sun", "water_needs", "soil_notes", "mature_height", "mature_width",
             "bloom_window", "harvest_window", "prune_window", "fertilize_window",
+            "spring_care", "summer_care", "fall_care", "winter_care",
+            "pruning_recommendations", "problems_to_watch",
             "toxicity_notes", "notes",
         ]
         widgets = {
             "planted_on": forms.DateInput(attrs={"type": "date"}),
             "soil_notes": forms.Textarea(attrs={"rows": 2}),
+            "spring_care": forms.Textarea(attrs={"rows": 3}),
+            "summer_care": forms.Textarea(attrs={"rows": 3}),
+            "fall_care": forms.Textarea(attrs={"rows": 3}),
+            "winter_care": forms.Textarea(attrs={"rows": 3}),
+            "pruning_recommendations": forms.Textarea(attrs={"rows": 4}),
+            "problems_to_watch": forms.Textarea(attrs={"rows": 4}),
             "toxicity_notes": forms.Textarea(attrs={"rows": 2}),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
@@ -65,6 +73,10 @@ class PlantForm(forms.ModelForm):
                     "planted_on", "planted_precision", "source"],
         "conditions": ["sun", "water_needs", "soil_notes", "mature_height", "mature_width"],
         "seasons": ["bloom_window", "harvest_window", "prune_window", "fertilize_window"],
+        "seasonal_care": [
+            "spring_care", "summer_care", "fall_care", "winter_care",
+            "pruning_recommendations", "problems_to_watch",
+        ],
         "notes_fields": ["toxicity_notes", "notes"],
     }
 

@@ -473,6 +473,40 @@ nav.primary a.user-entry .user-name {
 .danger-zone .danger-copy { color: var(--terracotta); margin-top: 8px; }
 
 /* --- plant photo library ------------------------------------------------ */
+.plant-profile-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  margin: -4px 0 14px;
+}
+.plant-profile-nav-link {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 8px 11px;
+  border: 1.5px solid var(--fir);
+  border-radius: var(--radius-sm);
+  color: var(--fir);
+  background: var(--paper);
+}
+.plant-profile-nav-link.next { justify-content: flex-end; text-align: right; }
+.plant-profile-nav-link:not(.is-disabled):hover { background: var(--sky-soft); }
+.plant-profile-nav-link.is-disabled { border-color: var(--line); color: var(--ink-soft); opacity: 0.62; }
+.plant-profile-nav-arrow { flex: none; font-size: 28px; line-height: 1; }
+.plant-profile-nav-copy { min-width: 0; display: grid; }
+.plant-profile-nav-copy small { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.plant-profile-nav-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plant-profile-position { align-self: center; color: var(--ink-soft); font-size: 13px; white-space: nowrap; }
+@media (max-width: 520px) {
+  .plant-profile-nav { gap: 6px; }
+  .plant-profile-nav-link { min-height: 50px; padding: 7px 8px; }
+  .plant-profile-nav-copy strong { font-size: 13px; }
+  .plant-profile-nav-arrow { font-size: 24px; }
+  .plant-profile-position { font-size: 11px; }
+}
 .photo-library { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 .plant-photo-tile { display: grid; gap: 6px; position: relative; min-width: 0; }
 .plant-photo-open {

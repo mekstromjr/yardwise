@@ -166,6 +166,18 @@ def plant_list(request):
 @login_required
 def plant_detail(request, pk):
     plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    profile_plants = list(
+        Plant.objects.filter(garden=plant.garden, status=plant.status)
+        .only("pk", "common_name", "cultivar")
+        .order_by("common_name", "cultivar", "pk")
+    )
+    profile_index = next(i for i, item in enumerate(profile_plants) if item.pk == plant.pk)
+    previous_plant = profile_plants[profile_index - 1] if profile_index else None
+    next_plant = (
+        profile_plants[profile_index + 1]
+        if profile_index + 1 < len(profile_plants)
+        else None
+    )
     harvests = list(plant.harvests.select_related("unit")[:50])
     timeline = [
         {"label": str(a.activity_type), "note": a.note, "on": a.performed_on}
@@ -190,6 +202,10 @@ def plant_detail(request, pk):
     return render(request, "garden/plants/detail.html", {
         "nav": "plants",
         "plant": plant,
+        "previous_plant": previous_plant,
+        "next_plant": next_plant,
+        "plant_position": profile_index + 1,
+        "plant_count": len(profile_plants),
         "active_problems": active_problems,
         "timeline": timeline,
         "photos": plant.photos.prefetch_related("categories").all()[:24],

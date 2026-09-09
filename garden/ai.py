@@ -116,7 +116,8 @@ def identify(photo_file, question: str, region: str, context: str) -> dict:
 # Plant fields AI enrichment may propose (empty-only; see enrich()).
 ENRICHABLE_FIELDS = [
     "botanical_name", "sun", "water_needs", "mature_height", "mature_width",
-    "toxicity_notes", "soil_notes", "foliage",
+    "toxicity_notes", "soil_notes", "foliage", "spring_care", "summer_care",
+    "fall_care", "winter_care", "pruning_recommendations", "problems_to_watch",
 ]
 CHOICE_FIELDS = {
     "sun": ["full", "part", "shade"],
@@ -138,13 +139,24 @@ def enrich(plant, region: str) -> dict:
         f"reasonably sure about. Constrained fields must use exactly one of the "
         f"allowed values: {json.dumps(constraints)}. Free-text fields: short, "
         "practical, no marketing prose. Sizes like '6-8 ft' are preferred over "
-        "false precision."
+        "false precision. Seasonal care should be specific to this plant and region. "
+        "For pruning_recommendations, say when and how to prune and include important "
+        "times or situations when pruning should be avoided. For problems_to_watch, "
+        "include only the most likely pests, diseases, and environmental stresses; "
+        "give early signs and a brief low-risk response rather than an exhaustive list."
     )
     desc = f"{plant.common_name}"
     if plant.cultivar:
         desc += f" '{plant.cultivar}'"
     if plant.botanical_name:
         desc += f" ({plant.botanical_name})"
+    known = {
+        field: getattr(plant, field)
+        for field in ("sun", "water_needs", "soil_notes", "foliage")
+        if getattr(plant, field)
+    }
+    if known:
+        desc += f". Known growing details: {json.dumps(known)}"
     raw, sources = complete(
         [{"role": "system", "content": system},
          {"role": "user", "content": f"The plant: {desc}"}],

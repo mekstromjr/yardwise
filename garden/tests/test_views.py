@@ -83,6 +83,16 @@ def test_plant_search_filters(user_client):
     assert b"Blueberry" in r.content and b"Pear" not in r.content
 
 
+def test_plant_live_search_preserves_the_active_input(user_client):
+    response = user_client.get(reverse("plant-list"), {"q": "blue"})
+
+    assert response.status_code == 200
+    assert b'id="plant-search"' in response.content
+    assert b"hx-preserve" in response.content
+    assert b'hx-sync="this:replace"' in response.content
+    assert b'value="blue"' in response.content
+
+
 def test_plant_filters_can_be_combined(user_client):
     bed = Bed.objects.create(name="Kitchen Garden")
     other_bed = Bed.objects.create(name="Front Border")

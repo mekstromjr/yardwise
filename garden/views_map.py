@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .models import Bed, MapLayer, MapLayerKind, Plant, PlantLocation, PropertyMap
@@ -103,6 +104,7 @@ def map_data(request):
             "id": bed.pk, "code": bed.code, "name": bed.name,
             "boundary": bed.boundary,
             "cells": pmap.cells_for_polygon(bed.boundary or []),
+            "url": reverse("bed-detail", args=[bed.pk]),
         })
     points = []
     for loc in (
@@ -113,9 +115,9 @@ def map_data(request):
         points.append({
             "loc_id": loc.pk, "plant_id": loc.plant_id,
             "name": str(loc.plant), "x": loc.point_x, "y": loc.point_y,
-            "bed": loc.bed.name if loc.bed else "",
+            "bed": loc.bed.name if loc.bed else "", "bed_id": loc.bed_id,
             "cell": pmap.cell_for(loc.point_x, loc.point_y),
-            "url": f"/plants/{loc.plant_id}/",
+            "url": reverse("plant-detail", args=[loc.plant_id]),
         })
     active_layers = MapLayer.objects.filter(garden=g, archived_at__isnull=True)
     # Base first, optional references above it.
@@ -135,6 +137,40 @@ def map_data(request):
         "grid": {"cols": pmap.grid_cols, "rows": pmap.grid_rows,
                  "visible": pmap.grid_visible},
         "beds": beds, "points": points, "layers": layers,
+    })
+
+
+@login_required
+def bed_detail(request, pk):
+    """Bed-focused map and its accessible, coordinated plant list."""
+    g = garden_for(request)
+    bed = get_object_or_404(
+        Bed.objects.select_related("bed_type"),
+        pk=pk,
+        garden=g,
+        archived_at__isnull=True,
+    )
+    locations = list(
+        bed.plant_locations.filter(is_current=True, plant__status="active")
+        .select_related("plant", "plant__primary_photo")
+        .order_by("plant__common_name", "plant__cultivar", "pk")
+    )
+    pmap = PropertyMap.get(g)
+    active_master = MapLayer.objects.filter(
+        garden=g,
+        kind=MapLayerKind.MASTER,
+        is_primary=True,
+        archived_at__isnull=True,
+    ).first()
+    return render(request, "garden/beds/detail.html", {
+        "nav": "map",
+        "bed": bed,
+        "locations": locations,
+        "mapped_count": sum(
+            loc.point_x is not None and loc.point_y is not None for loc in locations
+        ),
+        "grid_cells": pmap.cells_for_polygon(bed.boundary or []),
+        "active_master": active_master,
     })
 
 
@@ -192,7 +228,12 @@ def bed_create_from_outline(request):
     return JsonResponse(
         {
             "ok": True,
-            "bed": {"id": bed.pk, "code": bed.code, "name": bed.name},
+            "bed": {
+                "id": bed.pk,
+                "code": bed.code,
+                "name": bed.name,
+                "url": reverse("bed-detail", args=[bed.pk]),
+            },
             "cells": PropertyMap.get(g).cells_for_polygon(boundary),
         },
         status=201,

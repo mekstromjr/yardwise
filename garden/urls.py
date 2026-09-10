@@ -58,6 +58,7 @@ urlpatterns = [
     path("plants/<int:pk>/enrich/", views_ai.plant_enrich, name="plant-enrich"),
     path("map/", views_map.map_page, name="map"),
     path("map/data.json", views_map.map_data, name="map-data"),
+    path("beds/<int:pk>/", views_map.bed_detail, name="bed-detail"),
     path("map/beds/create/", views_map.bed_create_from_outline, name="map-bed-create"),
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),
     path("map/plant/<int:pk>/point/", views_map.plant_point, name="map-plant-point"),
@@ -96,7 +97,7 @@ urlpatterns = [
     path("settings/windows/", views_settings.window_action, name="settings-window"),
     path("beds/", views_settings.bed_list, name="bed-list"),
     path("beds/add/", views_settings.bed_form, name="bed-add"),
-    path("beds/<int:pk>/", views_settings.bed_form, name="bed-edit"),
+    path("beds/<int:pk>/edit/", views_settings.bed_form, name="bed-edit"),
     path("beds/<int:pk>/archive/", views_settings.bed_archive, name="bed-archive"),
     # Vegetable Garden Planner (#24)
     path("planner/", views_planner.planner_home, name="planner"),

@@ -3,6 +3,7 @@
 {% block title %}Property map - YardWise{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<div class="map-page-shell">
 <header class="page-head">
   <div class="kicker">The property</div>
   <h1>Map</h1>
@@ -18,7 +19,7 @@
   <span class="help">Locked original · interactive geometry is stored separately</span>
 </div>
 {% endif %}
-<div id="map" style="height:62vh; border-radius:var(--radius); border:1px solid var(--line); background:var(--sky-soft)"></div>
+<div id="map" class="property-map" aria-label="Interactive property map"></div>
 
 <details class="section" style="margin-top:12px">
   <summary>Edit the map</summary>
@@ -155,10 +156,11 @@
   </div>
 </details>
 <p class="meta" style="color:var(--ink-soft); font-size:12px">Satellite imagery © Esri World Imagery; geocoding © OpenStreetMap contributors.</p>
+</div>
 
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/yardwise-map.js' %}"></script>
 <script>
-  yardwiseMap({ focusPlant: "{{ focus_plant }}", focusBed: "{{ focus_bed }}" });
+  yardwiseMap({ focusPlant: "{{ focus_plant }}", focusBed: "{{ focus_bed }}", editor: true });
 </script>
 {% endblock %}

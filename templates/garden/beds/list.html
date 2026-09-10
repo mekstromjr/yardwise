@@ -11,7 +11,7 @@
 
 <section class="card">
   {% for bed in beds %}
-    <a class="row" href="{% url 'bed-edit' bed.pk %}">
+    <a class="row" href="{% url 'bed-detail' bed.pk %}">
       <div class="grow">
         <div class="title">{{ bed.name }}</div>
         <div class="meta">{{ bed.code }}{% if bed.short_code %} · {{ bed.short_code }}{% endif %}{% if bed.bed_type %} · {{ bed.bed_type }}{% endif %}</div>

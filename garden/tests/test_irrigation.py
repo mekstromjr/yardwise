@@ -156,7 +156,7 @@ def test_zone_detail_shows_served_bed_chips_and_component_history(user_client):
     r = user_client.get(reverse("irrigation-zone-detail", args=[zone.pk]))
     content = r.content.decode()
     assert "Blueberry Bed" in content
-    assert reverse("bed-edit", args=[bed.pk]) in content
+    assert reverse("bed-detail", args=[bed.pk]) in content
     assert "unclogged the emitter" in content  # component events roll up to the zone
 
 

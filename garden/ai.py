@@ -113,6 +113,66 @@ def identify(photo_file, question: str, region: str, context: str) -> dict:
     return out
 
 
+def suggest_bed_outline(photo_file, width: int, height: int, existing_names: list[str]) -> dict:
+    """Suggest a bed polygon within a user-selected map crop.
+
+    The returned pixel coordinates are only a reviewable proposal. Saving the
+    authoritative Bed boundary remains a separate, explicit user action.
+    """
+    system = (
+        "You help a home gardener trace one garden bed in a selected crop of a property "
+        "plan. Identify the most likely managed planting area in the crop. Brown or "
+        "mulched areas often indicate garden beds; use visible paths, fences, building "
+        "edges, retaining edges, and other structures to infer its boundary. Do not "
+        "include paths, lawn, buildings, or neighboring beds. Return ONLY a JSON object "
+        "with keys: boundary, suggested_name, confidence. boundary must be 4-16 [x,y] "
+        f"points in clockwise order using crop pixels from [0,0] to [{width},{height}]. "
+        "Use enough points for curved or irregular edges without excessive detail. "
+        "suggested_name should be a short logical location-based name, not a guessed "
+        "plant name. confidence must be low, medium, or high. If uncertain, still give "
+        "the best conservative outline because the user will adjust it."
+    )
+    context = (
+        "Existing bed names to avoid duplicating: " + ", ".join(existing_names)
+        if existing_names else "There are no existing bed names."
+    )
+    raw, _sources = complete(
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": [
+                {"type": "text", "text": context},
+                _image_part(photo_file),
+            ]},
+        ],
+        json_mode=True,
+    )
+    try:
+        proposed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise AIError(f"unparseable bed outline: {raw[:200]}") from exc
+    boundary = proposed.get("boundary")
+    if (
+        not isinstance(boundary, list)
+        or not 4 <= len(boundary) <= 16
+        or not all(
+            isinstance(point, list)
+            and len(point) == 2
+            and all(isinstance(value, int | float) for value in point)
+            for point in boundary
+        )
+    ):
+        raise AIError("The suggested bed outline was incomplete.")
+    if not all(0 <= point[0] <= width and 0 <= point[1] <= height for point in boundary):
+        raise AIError("The suggested bed outline fell outside the selected region.")
+    name = proposed.get("suggested_name", "")
+    confidence = proposed.get("confidence", "low")
+    return {
+        "boundary": boundary,
+        "suggested_name": name.strip()[:100] if isinstance(name, str) else "",
+        "confidence": confidence if confidence in ("low", "medium", "high") else "low",
+    }
+
+
 # Plant fields AI enrichment may propose (empty-only; see enrich()).
 ENRICHABLE_FIELDS = [
     "botanical_name", "sun", "water_needs", "mature_height", "mature_width",

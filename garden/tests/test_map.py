@@ -68,6 +68,17 @@ def test_create_and_name_bed_from_map_outline(user_client):
     assert body["cells"]
 
 
+def test_map_bed_editor_has_save_undo_and_restart_controls(user_client):
+    response = user_client.get(reverse("map"))
+
+    assert response.status_code == 200
+    assert b'id="trace-undo"' in response.content
+    assert b'id="trace-restart"' in response.content
+    assert b">Save outline<" in response.content
+    assert b'id="new-bed-restart"' in response.content
+    assert b">Save bed<" in response.content
+
+
 @pytest.mark.parametrize(
     ("payload", "message"),
     [

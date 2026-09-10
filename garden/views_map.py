@@ -1,6 +1,7 @@
 """Property map views (PDD section 4 MVP): view, trace, place, identify."""
 
 import hashlib
+import io
 import json
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from . import ai
 from .models import Bed, MapLayer, MapLayerKind, Plant, PlantLocation, PropertyMap
 from .tenancy import garden_for
 
@@ -238,6 +240,133 @@ def bed_create_from_outline(request):
         },
         status=201,
     )
+
+
+def _layer_canvas_box(pmap, layer):
+    """Return a layer's map-space (x, y, width, height), preserving its ratio."""
+    if layer.canvas_width and layer.canvas_height:
+        return (
+            layer.canvas_x or 0,
+            layer.canvas_y or 0,
+            layer.canvas_width,
+            layer.canvas_height,
+        )
+    if layer.natural_width and layer.natural_height:
+        scale = min(pmap.width / layer.natural_width, pmap.height / layer.natural_height)
+        width = layer.natural_width * scale
+        height = layer.natural_height * scale
+        return ((pmap.width - width) / 2, (pmap.height - height) / 2, width, height)
+    return (0, 0, pmap.width, pmap.height)
+
+
+@require_POST
+@login_required
+def bed_suggest_outline(request):
+    """Suggest, but never save, a bed polygon from a selected map region."""
+    g = garden_for(request)
+    try:
+        payload = json.loads(request.body)
+        bounds = payload["bounds"]
+        if (
+            not isinstance(bounds, list)
+            or len(bounds) != 2
+            or not all(
+                isinstance(point, list)
+                and len(point) == 2
+                and all(isinstance(value, int | float) for value in point)
+                for point in bounds
+            )
+        ):
+            raise ValueError
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+        return JsonResponse({"error": "Select a rectangular map region first."}, status=400)
+
+    if not ai.enabled():
+        return JsonResponse(
+            {"error": "AI outlining is unavailable; adjust the selected rectangle manually."},
+            status=503,
+        )
+
+    layer = (
+        MapLayer.objects.filter(
+            garden=g,
+            kind=MapLayerKind.MASTER,
+            is_primary=True,
+            archived_at__isnull=True,
+        ).first()
+        or MapLayer.objects.filter(
+            garden=g,
+            visible=True,
+            archived_at__isnull=True,
+        ).order_by("-is_primary", "-uploaded_at").first()
+    )
+    if layer is None:
+        return JsonResponse(
+            {"error": "Add a property map or reference image before requesting an outline."},
+            status=409,
+        )
+
+    pmap = PropertyMap.get(g)
+    layer_x, layer_y, layer_w, layer_h = _layer_canvas_box(pmap, layer)
+    left, right = sorted((float(bounds[0][0]), float(bounds[1][0])))
+    top, bottom = sorted((float(bounds[0][1]), float(bounds[1][1])))
+    left, right = max(left, layer_x), min(right, layer_x + layer_w)
+    top, bottom = max(top, layer_y), min(bottom, layer_y + layer_h)
+    if right - left < 10 or bottom - top < 10:
+        return JsonResponse(
+            {"error": "Select a larger region that overlaps the property map."}, status=400
+        )
+
+    from PIL import Image as PILImage
+    from PIL import UnidentifiedImageError
+
+    try:
+        with layer.image.open("rb") as source:
+            image = PILImage.open(source)
+            image.load()
+        sx = image.width / layer_w
+        sy = image.height / layer_h
+        crop_box = (
+            max(0, round((left - layer_x) * sx)),
+            max(0, round((top - layer_y) * sy)),
+            min(image.width, round((right - layer_x) * sx)),
+            min(image.height, round((bottom - layer_y) * sy)),
+        )
+        crop = image.crop(crop_box).convert("RGB")
+        encoded = io.BytesIO()
+        crop.save(encoded, "JPEG", quality=90)
+        crop_width, crop_height = crop.size
+        crop_file = ContentFile(encoded.getvalue(), name="selected-map-region.jpg")
+    except (UnidentifiedImageError, OSError, ValueError):
+        return JsonResponse({"error": "The selected map image could not be read."}, status=400)
+
+    try:
+        suggestion = ai.suggest_bed_outline(
+            crop_file,
+            crop_width,
+            crop_height,
+            list(Bed.objects.filter(garden=g).values_list("name", flat=True)),
+        )
+    except ai.AIError:
+        return JsonResponse(
+            {"error": "No clear bed edge was found. Adjust the rectangle manually."},
+            status=422,
+        )
+
+    boundary = [
+        [
+            round(left + point[0] / crop_width * (right - left)),
+            round(top + point[1] / crop_height * (bottom - top)),
+        ]
+        for point in suggestion["boundary"]
+    ]
+    return JsonResponse({
+        "ok": True,
+        "boundary": boundary,
+        "suggested_name": suggestion["suggested_name"],
+        "confidence": suggestion["confidence"],
+    })
+
 
 @require_POST
 @login_required

@@ -18,7 +18,7 @@
   </div>
   <p style="display:flex; gap:10px">
     <button class="btn" type="submit">Save bed</button>
-    <a class="btn secondary" href="{% url 'bed-list' %}">Cancel</a>
+    <a class="btn secondary" href="{% if bed %}{% url 'bed-detail' bed.pk %}{% else %}{% url 'bed-list' %}{% endif %}">Cancel</a>
   </p>
 </form>
 

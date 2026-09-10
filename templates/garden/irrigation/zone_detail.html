@@ -25,7 +25,7 @@
   {% if beds %}
     <p style="display:flex; gap:8px; flex-wrap:wrap">
       {% for bed in beds %}
-        <a class="chip" href="{% url 'bed-edit' bed.pk %}">{{ bed.name }}</a>
+        <a class="chip" href="{% url 'bed-detail' bed.pk %}">{{ bed.name }}</a>
       {% endfor %}
     </p>
   {% else %}

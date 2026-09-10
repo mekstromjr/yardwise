@@ -5,7 +5,11 @@
 
 function yardwiseMap(opts) {
   const el = document.getElementById("map");
-  const map = L.map(el, { crs: L.CRS.Simple, minZoom: -3, attributionControl: false });
+  if (!el) return;
+  const map = L.map(el, {
+    crs: L.CRS.Simple, minZoom: -3, maxZoom: 5, zoomSnap: 0.5,
+    scrollWheelZoom: true, attributionControl: false,
+  });
   const state = { data: null, mode: "view", traceBedId: null, tracePts: [],
                   placePlantId: null, markers: {}, bedShapes: {}, traceLayer: null,
                   plantLayer: L.layerGroup() };
@@ -35,7 +39,32 @@ function yardwiseMap(opts) {
     return r.json();
   }
 
-  function setStatus(msg) { document.getElementById("map-status").textContent = msg; }
+  function setStatus(msg) {
+    const status = document.getElementById("map-status");
+    if (status) status.textContent = msg;
+  }
+
+  function plantTooltip(name) {
+    const content = document.createElement("span");
+    content.textContent = name;
+    return content;
+  }
+
+  function sidebarItem(locationId) {
+    return document.querySelector(`[data-plant-location="${locationId}"]`);
+  }
+
+  function highlightLocation(locationId, highlighted) {
+    const marker = state.markers[locationId];
+    const item = sidebarItem(locationId);
+    if (item) item.classList.toggle("is-map-highlighted", highlighted);
+    if (!marker) return;
+    marker.setStyle(highlighted
+      ? { radius: 11, weight: 4, fillColor: "#e47a4e" }
+      : { radius: 7, weight: 2, fillColor: "#bc5f38" });
+    if (highlighted) marker.openTooltip();
+    else marker.closeTooltip();
+  }
 
   function showSelectedPhoto(file) {
     if (!file) return;
@@ -47,37 +76,39 @@ function yardwiseMap(opts) {
     photoTitle.textContent = file.name || "Photo selected";
   }
 
-  photoInput.addEventListener("change", () => showSelectedPhoto(photoInput.files[0]));
-  ["dragenter", "dragover"].forEach(eventName => {
-    photoDrop.addEventListener(eventName, event => {
-      event.preventDefault();
-      photoDrop.classList.add("dragging");
+  if (photoInput && photoDrop) {
+    photoInput.addEventListener("change", () => showSelectedPhoto(photoInput.files[0]));
+    ["dragenter", "dragover"].forEach(eventName => {
+      photoDrop.addEventListener(eventName, event => {
+        event.preventDefault();
+        photoDrop.classList.add("dragging");
+      });
     });
-  });
-  ["dragleave", "drop"].forEach(eventName => {
-    photoDrop.addEventListener(eventName, event => {
-      event.preventDefault();
-      photoDrop.classList.remove("dragging");
+    ["dragleave", "drop"].forEach(eventName => {
+      photoDrop.addEventListener(eventName, event => {
+        event.preventDefault();
+        photoDrop.classList.remove("dragging");
+      });
     });
-  });
-  photoDrop.addEventListener("drop", event => {
-    const file = Array.from(event.dataTransfer.files).find(item =>
-      item.type.startsWith("image/") || /\.(heic|heif)$/i.test(item.name)
-    );
-    if (!file) {
-      setStatus("That item is not a photo. Choose an image from Photos or files.");
-      return;
-    }
-    try {
-      const transfer = new DataTransfer();
-      transfer.items.add(file);
-      photoInput.files = transfer.files;
-      showSelectedPhoto(file);
-      setStatus("Photo ready - add a name if you like, then use this photo.");
-    } catch (error) {
-      setStatus("This browser cannot receive that dragged photo. Tap the chooser instead.");
-    }
-  });
+    photoDrop.addEventListener("drop", event => {
+      const file = Array.from(event.dataTransfer.files).find(item =>
+        item.type.startsWith("image/") || /\.(heic|heif)$/i.test(item.name)
+      );
+      if (!file) {
+        setStatus("That item is not a photo. Choose an image from Photos or files.");
+        return;
+      }
+      try {
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        photoInput.files = transfer.files;
+        showSelectedPhoto(file);
+        setStatus("Photo ready - add a name if you like, then use this photo.");
+      } catch (error) {
+        setStatus("This browser cannot receive that dragged photo. Tap the chooser instead.");
+      }
+    });
+  }
 
   function drawTrace() {
     if (state.traceLayer) state.traceLayer.remove();
@@ -153,23 +184,35 @@ function yardwiseMap(opts) {
     // beds
     data.beds.forEach(bed => {
       if (!bed.boundary) return;
+      const selected = String(opts.focusBed || "") === String(bed.id);
       const poly = L.polygon(bed.boundary.map(p => toLL(p[0], p[1])), {
-        color: "#3d5c40", weight: 2, fillColor: "#7d9770", fillOpacity: 0.18,
-      }).addTo(map).bindTooltip(bed.name, { sticky: true });
+        color: selected ? "#bc5f38" : "#3d5c40",
+        weight: selected ? 4 : 2,
+        fillColor: selected ? "#bc5f38" : "#7d9770",
+        fillOpacity: selected ? 0.22 : (opts.focusBed ? 0.05 : 0.18),
+        opacity: opts.focusBed && !selected ? 0.35 : 1,
+      }).addTo(map).bindTooltip(plantTooltip(bed.name), { sticky: true });
       poly.on("click", () => {
         if (state.mode !== "view") return;
-        window.location.search = "?bed=" + bed.id;
+        window.location.href = bed.url;
       });
       state.bedShapes[bed.id] = poly;
     });
     // plant points
     data.points.forEach(pt => {
+      if (opts.focusBed && String(pt.bed_id || "") !== String(opts.focusBed)) return;
       const m = L.circleMarker(toLL(pt.x, pt.y), {
         radius: 7, color: "#fffdf6", weight: 2, fillColor: "#bc5f38", fillOpacity: 0.95,
-      }).addTo(state.plantLayer).bindPopup(
-        `<strong>${pt.name}</strong><br>${pt.bed || "no bed"} · ${pt.cell}` +
-        `<br><a href="${pt.url}">Open plant</a>`);
-      state.markers[pt.plant_id] = m;
+      }).addTo(state.plantLayer).bindTooltip(plantTooltip(pt.name), {
+        direction: "top", offset: [0, -8], className: "plant-map-tooltip",
+      });
+      m.on("mouseover", () => highlightLocation(pt.loc_id, true));
+      m.on("mouseout", () => highlightLocation(pt.loc_id, false));
+      m.on("click", event => {
+        if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+        window.location.href = pt.url;
+      });
+      state.markers[pt.loc_id] = m;
     });
     map.fitBounds(bounds);
 
@@ -184,16 +227,27 @@ function yardwiseMap(opts) {
     updateProgressiveLayers();
 
     // focus requested from a profile page ("Show on map")
-    if (opts.focusPlant && state.markers[opts.focusPlant]) {
+    const focusedPlantPoint = data.points.find(
+      point => String(point.plant_id) === String(opts.focusPlant || "")
+    );
+    if (focusedPlantPoint && state.markers[focusedPlantPoint.loc_id]) {
       state.plantLayer.addTo(map);
-      const m = state.markers[opts.focusPlant];
+      const m = state.markers[focusedPlantPoint.loc_id];
       map.setView(m.getLatLng(), 1);
-      m.openPopup();
+      m.openTooltip();
     } else if (opts.focusBed && state.bedShapes[opts.focusBed]) {
       const shape = state.bedShapes[opts.focusBed];
-      map.fitBounds(shape.getBounds().pad(0.4));
-      shape.setStyle({ color: "#bc5f38", weight: 3 });
+      map.fitBounds(shape.getBounds().pad(opts.bedPage ? 0.18 : 0.4));
     }
+
+    document.querySelectorAll("[data-plant-location]").forEach(item => {
+      const locationId = item.dataset.plantLocation;
+      if (!state.markers[locationId]) return;
+      item.addEventListener("mouseenter", () => highlightLocation(locationId, true));
+      item.addEventListener("mouseleave", () => highlightLocation(locationId, false));
+      item.addEventListener("focus", () => highlightLocation(locationId, true));
+      item.addEventListener("blur", () => highlightLocation(locationId, false));
+    });
   }
 
   map.on("click", async (e) => {
@@ -212,70 +266,72 @@ function yardwiseMap(opts) {
     }
   });
 
-  document.getElementById("trace-new-start").addEventListener("click", () => startTrace(null));
-  document.getElementById("trace-existing-start").addEventListener("click", () => {
-    const sel = document.getElementById("trace-bed");
-    if (!sel.value) { setStatus("Pick the existing bed you want to adjust"); return; }
-    startTrace(sel.value);
-  });
-  document.getElementById("trace-finish").addEventListener("click", async () => {
-    if (state.mode !== "trace" || state.tracePts.length < 3) {
-      setStatus("Need at least 3 points"); return;
-    }
-    if (!state.traceBedId) {
-      state.mode = "name-bed";
-      traceActions.hidden = true;
-      nameForm.hidden = false;
-      setStatus("Outline ready - give this garden bed a name");
-      nameInput.focus();
-      return;
-    }
-    const res = await post(`/map/bed/${state.traceBedId}/boundary/`,
-                           { boundary: state.tracePts });
-    setStatus(res.ok ? `Saved (cells ${res.cells.join(", ")}). Reloading...` : res.error);
-    if (res.ok) setTimeout(() => window.location.reload(), 600);
-  });
-  document.getElementById("trace-undo").addEventListener("click", () => {
-    if (state.mode !== "trace" || !state.tracePts.length) return;
-    state.tracePts.pop();
-    drawTrace();
-    setStatus(state.tracePts.length
-      ? `Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"}`
-      : "Tap the first point on the bed's edge");
-  });
-  document.getElementById("trace-cancel").addEventListener("click", cancelTrace);
-  document.getElementById("new-bed-cancel").addEventListener("click", cancelTrace);
-  document.getElementById("new-bed-back").addEventListener("click", () => {
-    state.mode = "trace";
-    nameForm.hidden = true;
-    traceActions.hidden = false;
-    setStatus("Adjust the outline, then finish it again");
-  });
-  nameForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const name = nameInput.value.trim();
-    if (!name) {
-      nameError.textContent = "Give the garden bed a name.";
-      nameError.hidden = false;
-      nameInput.focus();
-      return;
-    }
-    const res = await post("/map/beds/create/", { name, boundary: state.tracePts });
-    if (!res.ok) {
-      nameError.textContent = res.error || "The bed could not be created.";
-      nameError.hidden = false;
-      return;
-    }
-    nameError.hidden = true;
-    setStatus(`Created ${res.bed.name} (${res.bed.code}). Reloading...`);
-    setTimeout(() => { window.location.search = `?bed=${res.bed.id}`; }, 600);
-  });
-  document.getElementById("place-start").addEventListener("click", () => {
-    const sel = document.getElementById("place-plant");
-    if (!sel.value) { setStatus("Pick the plant to place first"); return; }
-    state.mode = "place"; state.placePlantId = sel.value;
-    setStatus("Tap the plant's spot on the map");
-  });
+  if (opts.editor) {
+    document.getElementById("trace-new-start").addEventListener("click", () => startTrace(null));
+    document.getElementById("trace-existing-start").addEventListener("click", () => {
+      const sel = document.getElementById("trace-bed");
+      if (!sel.value) { setStatus("Pick the existing bed you want to adjust"); return; }
+      startTrace(sel.value);
+    });
+    document.getElementById("trace-finish").addEventListener("click", async () => {
+      if (state.mode !== "trace" || state.tracePts.length < 3) {
+        setStatus("Need at least 3 points"); return;
+      }
+      if (!state.traceBedId) {
+        state.mode = "name-bed";
+        traceActions.hidden = true;
+        nameForm.hidden = false;
+        setStatus("Outline ready - give this garden bed a name");
+        nameInput.focus();
+        return;
+      }
+      const res = await post(`/map/bed/${state.traceBedId}/boundary/`,
+                             { boundary: state.tracePts });
+      setStatus(res.ok ? `Saved (cells ${res.cells.join(", ")}). Reloading...` : res.error);
+      if (res.ok) setTimeout(() => window.location.reload(), 600);
+    });
+    document.getElementById("trace-undo").addEventListener("click", () => {
+      if (state.mode !== "trace" || !state.tracePts.length) return;
+      state.tracePts.pop();
+      drawTrace();
+      setStatus(state.tracePts.length
+        ? `Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"}`
+        : "Tap the first point on the bed's edge");
+    });
+    document.getElementById("trace-cancel").addEventListener("click", cancelTrace);
+    document.getElementById("new-bed-cancel").addEventListener("click", cancelTrace);
+    document.getElementById("new-bed-back").addEventListener("click", () => {
+      state.mode = "trace";
+      nameForm.hidden = true;
+      traceActions.hidden = false;
+      setStatus("Adjust the outline, then finish it again");
+    });
+    nameForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameError.textContent = "Give the garden bed a name.";
+        nameError.hidden = false;
+        nameInput.focus();
+        return;
+      }
+      const res = await post("/map/beds/create/", { name, boundary: state.tracePts });
+      if (!res.ok) {
+        nameError.textContent = res.error || "The bed could not be created.";
+        nameError.hidden = false;
+        return;
+      }
+      nameError.hidden = true;
+      setStatus(`Created ${res.bed.name} (${res.bed.code}). Reloading...`);
+      setTimeout(() => { window.location.href = res.bed.url; }, 600);
+    });
+    document.getElementById("place-start").addEventListener("click", () => {
+      const sel = document.getElementById("place-plant");
+      if (!sel.value) { setStatus("Pick the plant to place first"); return; }
+      state.mode = "place"; state.placePlantId = sel.value;
+      setStatus("Tap the plant's spot on the map");
+    });
+  }
 
-  fetch("/map/data.json").then(r => r.json()).then(render);
+  fetch(opts.dataUrl || "/map/data.json").then(r => r.json()).then(render);
 }

@@ -116,7 +116,7 @@ def bed_form(request, pk=None):
         bed = form.save(commit=False)
         bed.garden = g
         bed.save()
-        return redirect("bed-list")
+        return redirect("bed-detail", pk=bed.pk)
     plants = (
         bed.plant_locations.filter(is_current=True, plant__status="active").select_related("plant")
         if bed else []

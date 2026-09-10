@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ bed.name }} - YardWise{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<div class="map-page-shell">
+  <header class="page-head bed-page-head">
+    <div>
+      <div class="kicker">{{ bed.code }}{% if bed.short_code %} · {{ bed.short_code }}{% endif %}</div>
+      <h1>{{ bed.name }}</h1>
+      <div class="sub">
+        {% if bed.bed_type %}{{ bed.bed_type }} · {% endif %}
+        {% if grid_cells %}Grid {{ grid_cells|join:", " }}{% else %}No map outline yet{% endif %}
+      </div>
+    </div>
+    <div class="quick-actions">
+      <a class="btn small secondary" href="{% url 'map' %}">Back to property</a>
+      <a class="btn small secondary" href="{% url 'bed-edit' bed.pk %}">Edit bed</a>
+    </div>
+  </header>
+
+  <div class="bed-map-workspace">
+    <section class="bed-map-panel" aria-labelledby="bed-map-heading">
+      <h2 id="bed-map-heading" class="visually-hidden">{{ bed.name }} map</h2>
+      {% if bed.boundary %}
+        <div id="map" class="property-map bed-focus-map" aria-label="Interactive map of {{ bed.name }}"></div>
+        <p class="map-help">Use +/−, scroll, or pinch to zoom. Hover over a plant dot to identify it in the list; select a dot to open the plant.</p>
+      {% else %}
+        <div class="empty bed-map-empty">
+          <div class="art">◇</div>
+          <h2>This bed is not outlined yet</h2>
+          <p>Outline it on the property map to see its plant locations here.</p>
+          <a class="btn small" href="{% url 'map' %}?bed={{ bed.pk }}">Open property map</a>
+        </div>
+      {% endif %}
+    </section>
+
+    <aside class="bed-plant-sidebar" aria-labelledby="bed-plants-heading">
+      <div class="bed-sidebar-head">
+        <div>
+          <div class="kicker">Bed contents</div>
+          <h2 id="bed-plants-heading">Plants</h2>
+        </div>
+        <span class="chip">{{ locations|length }}</span>
+      </div>
+      <div class="bed-plant-list">
+        {% for loc in locations %}
+          <a class="bed-plant-item" href="{% url 'plant-detail' loc.plant.pk %}"
+             data-plant-location="{{ loc.pk }}">
+            <span class="bed-plant-thumb">
+              {% if loc.plant.primary_photo %}
+                <img src="{{ loc.plant.primary_photo.thumb_url }}" alt="" loading="lazy">
+              {% else %}<span aria-hidden="true">✿</span>{% endif %}
+            </span>
+            <span class="bed-plant-copy">
+              <strong>{{ loc.plant }}</strong>
+              <small>{% if loc.location_note %}{{ loc.location_note }} · {% endif %}{% if loc.point_x != None and loc.point_y != None %}Located on map{% else %}Not placed on map{% endif %}</small>
+            </span>
+            {% if loc.point_x != None and loc.point_y != None %}<span class="bed-location-dot" aria-hidden="true"></span>{% endif %}
+          </a>
+        {% empty %}
+          <div class="empty compact">
+            <div class="art">🪴</div>
+            <p>No plants are assigned to this bed yet.</p>
+          </div>
+        {% endfor %}
+      </div>
+      {% if locations and mapped_count < locations|length %}
+        <p class="help bed-sidebar-note">{{ mapped_count }} of {{ locations|length }} plant location{{ locations|length|pluralize }} placed on the map.</p>
+      {% endif %}
+    </aside>
+  </div>
+
+  {% if bed.sun_notes or bed.soil_notes or bed.irrigation_notes or bed.notes %}
+    <section class="card bed-notes-card">
+      <h2>Bed notes</h2>
+      {% if bed.sun_notes %}<div><strong>Sun</strong><p>{{ bed.sun_notes|linebreaksbr }}</p></div>{% endif %}
+      {% if bed.soil_notes %}<div><strong>Soil</strong><p>{{ bed.soil_notes|linebreaksbr }}</p></div>{% endif %}
+      {% if bed.irrigation_notes %}<div><strong>Irrigation</strong><p>{{ bed.irrigation_notes|linebreaksbr }}</p></div>{% endif %}
+      {% if bed.notes %}<div><strong>Notes</strong><p>{{ bed.notes|linebreaksbr }}</p></div>{% endif %}
+    </section>
+  {% endif %}
+</div>
+
+{% if bed.boundary %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/yardwise-map.js' %}"></script>
+<script>yardwiseMap({ focusBed: "{{ bed.pk }}", bedPage: true });</script>
+{% endif %}
+{% endblock %}

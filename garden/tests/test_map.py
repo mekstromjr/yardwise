@@ -18,17 +18,17 @@ def user_client(client):
 
 
 def test_grid_cell_math():
-    pmap = PropertyMap.get()  # 1000x750, 10x8 default
+    pmap = PropertyMap.get()  # 1000x750, 40x32 default
     assert pmap.cell_for(0, 0) == "A1"
-    assert pmap.cell_for(999, 749) == "J8"
-    assert pmap.cell_for(450, 400) == "E5"
+    assert pmap.cell_for(999, 749) == "AN32"
+    assert pmap.cell_for(450, 400) == "S18"
     assert pmap.cell_for(2000, 0) == ""  # out of bounds
 
 
 def test_polygon_cells_err_toward_inclusion():
     pmap = PropertyMap.get()
     cells = pmap.cells_for_polygon([[50, 50], [250, 50], [250, 140], [50, 140]])
-    assert "A1" in cells and "C2" in cells
+    assert "C3" in cells and "K6" in cells
 
 
 def test_trace_bed_boundary_and_reject_bad_input(user_client):
@@ -125,9 +125,10 @@ def test_map_data_payload(user_client):
     plant = Plant.objects.create(common_name="Rose")
     PlantLocation.objects.create(plant=plant, bed=bed, point_x=25, point_y=25)
     data = user_client.get(reverse("map-data")).json()
-    assert data["beds"][0]["cells"] == ["A1"]
+    assert data["beds"][0]["cells"][0] == "A1"
+    assert data["beds"][0]["cells"][-1] == "C3"
     assert data["beds"][0]["url"] == reverse("bed-detail", args=[bed.pk])
-    assert data["points"][0]["name"] == "Rose" and data["points"][0]["cell"] == "A1"
+    assert data["points"][0]["name"] == "Rose" and data["points"][0]["cell"] == "B2"
     assert data["points"][0]["bed_id"] == bed.pk
     assert data["points"][0]["url"] == reverse("plant-detail", args=[plant.pk])
 

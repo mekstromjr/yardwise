@@ -699,6 +699,17 @@ nav.primary a.user-entry .user-name {
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+.property-map.selecting-bed-region { cursor: crosshair; }
+.bed-vertex-handle {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--card);
+  border-radius: 50%;
+  background: var(--terracotta);
+  box-shadow: 0 1px 5px rgb(43 58 44 / 0.45);
+  cursor: grab;
+}
+.bed-vertex-handle:active { cursor: grabbing; }
 .map-help {
   color: var(--ink-soft);
   font-size: 13px;

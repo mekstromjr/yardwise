@@ -231,3 +231,36 @@ def test_identify_sends_web_derivative_not_original(user_client, monkeypatch):
     monkeypatch.setattr(ai, "identify", fake_identify)
     user_client.post(reverse("ai-identify"), {"photo": _png(), "question": "?"})
     assert captured["name"].endswith("_web.jpg"), captured
+
+
+def test_bed_outline_suggestion_is_bounded_and_uses_existing_names(monkeypatch):
+    captured = {}
+
+    def fake_complete(messages, **kwargs):
+        captured["messages"] = messages
+        return (
+            '{"boundary": [[10, 10], [190, 10], [180, 90], [20, 90]], '
+            '"suggested_name": "North fence bed", "confidence": "high"}',
+            [],
+        )
+
+    monkeypatch.setattr(ai, "complete", fake_complete)
+    result = ai.suggest_bed_outline(_png(), 200, 100, ["Rose Bed"])
+
+    assert result["suggested_name"] == "North fence bed"
+    assert result["confidence"] == "high"
+    assert len(result["boundary"]) == 4
+    prompt = captured["messages"][0]["content"]
+    assert "paths, fences" in prompt and "user will adjust" in prompt
+    assert "Rose Bed" in captured["messages"][1]["content"][0]["text"]
+
+
+def test_bed_outline_rejects_points_outside_selected_crop(monkeypatch):
+    monkeypatch.setattr(ai, "complete", lambda *args, **kwargs: (
+        '{"boundary": [[-1, 0], [100, 0], [100, 100], [0, 100]], '
+        '"suggested_name": "Bed", "confidence": "medium"}',
+        [],
+    ))
+
+    with pytest.raises(ai.AIError, match="outside"):
+        ai.suggest_bed_outline(_png(), 100, 100, [])

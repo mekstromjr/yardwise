@@ -60,6 +60,7 @@ urlpatterns = [
     path("map/data.json", views_map.map_data, name="map-data"),
     path("beds/<int:pk>/", views_map.bed_detail, name="bed-detail"),
     path("map/beds/create/", views_map.bed_create_from_outline, name="map-bed-create"),
+    path("map/beds/suggest/", views_map.bed_suggest_outline, name="map-bed-suggest"),
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),
     path("map/plant/<int:pk>/point/", views_map.plant_point, name="map-plant-point"),
     path("map/layers/upload/", views_map.layer_upload, name="map-layer-upload"),

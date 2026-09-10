@@ -98,6 +98,63 @@ def test_create_bed_from_map_rejects_duplicate_active_name(user_client):
     assert Bed.objects.count() == 1
 
 
+def test_ai_bed_outline_crops_region_and_returns_reviewable_map_points(
+    user_client, monkeypatch, settings, tmp_path
+):
+    settings.MEDIA_ROOT = str(tmp_path)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    _upload_png(user_client, "property plan", 1000, 750)
+    captured = {}
+
+    def fake_suggest(photo, width, height, names):
+        captured.update(width=width, height=height, names=names, filename=photo.name)
+        return {
+            "boundary": [[0, 0], [200, 0], [200, 200], [0, 200]],
+            "suggested_name": "House-side bed",
+            "confidence": "high",
+        }
+
+    monkeypatch.setattr("garden.views_map.ai.suggest_bed_outline", fake_suggest)
+    response = user_client.post(
+        reverse("map-bed-suggest"),
+        json.dumps({"bounds": [[100, 100], [300, 300]]}),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "boundary": [[100, 100], [300, 100], [300, 300], [100, 300]],
+        "suggested_name": "House-side bed",
+        "confidence": "high",
+    }
+    assert captured == {
+        "width": 200,
+        "height": 200,
+        "names": [],
+        "filename": "selected-map-region.jpg",
+    }
+    assert not Bed.objects.exists()  # suggestions never become records automatically
+
+
+def test_ai_bed_outline_requires_valid_region_and_ai(user_client, monkeypatch):
+    bad = user_client.post(
+        reverse("map-bed-suggest"),
+        json.dumps({"bounds": [[0, 0]]}),
+        content_type="application/json",
+    )
+    assert bad.status_code == 400
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    unavailable = user_client.post(
+        reverse("map-bed-suggest"),
+        json.dumps({"bounds": [[0, 0], [100, 100]]}),
+        content_type="application/json",
+    )
+    assert unavailable.status_code == 503
+    assert b"adjust the selected rectangle manually" in unavailable.content
+
+
 def test_place_plant_resolves_containing_bed(user_client):
     bed = Bed.objects.create(name="Front Bed",
                              boundary=[[0, 0], [200, 0], [200, 200], [0, 200]])

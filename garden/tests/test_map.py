@@ -58,7 +58,10 @@ def test_create_and_name_bed_from_map_outline(user_client):
     body = response.json()
     bed = Bed.objects.get()
     assert body["ok"] and body["bed"] == {
-        "id": bed.pk, "code": "BED-001", "name": "Front rose bed",
+        "id": bed.pk,
+        "code": "BED-001",
+        "name": "Front rose bed",
+        "url": reverse("bed-detail", args=[bed.pk]),
     }
     assert bed.boundary == [[10, 10], [110, 10], [110, 80], [10, 80]]
     assert bed.garden.owner.username == "m"
@@ -123,7 +126,48 @@ def test_map_data_payload(user_client):
     PlantLocation.objects.create(plant=plant, bed=bed, point_x=25, point_y=25)
     data = user_client.get(reverse("map-data")).json()
     assert data["beds"][0]["cells"] == ["A1"]
+    assert data["beds"][0]["url"] == reverse("bed-detail", args=[bed.pk])
     assert data["points"][0]["name"] == "Rose" and data["points"][0]["cell"] == "A1"
+    assert data["points"][0]["bed_id"] == bed.pk
+    assert data["points"][0]["url"] == reverse("plant-detail", args=[plant.pk])
+
+
+def test_bed_detail_has_focused_map_and_coordinated_plant_sidebar(user_client):
+    bed = Bed.objects.create(
+        name="Front Bed",
+        short_code="FB",
+        boundary=[[0, 0], [200, 0], [200, 200], [0, 200]],
+    )
+    rose = Plant.objects.create(common_name="Rose", cultivar="Peace")
+    mapped = PlantLocation.objects.create(
+        plant=rose, bed=bed, point_x=50, point_y=75, location_note="path edge"
+    )
+    fern = Plant.objects.create(common_name="Fern")
+    PlantLocation.objects.create(plant=fern, bed=bed)
+
+    response = user_client.get(reverse("bed-detail", args=[bed.pk]))
+
+    assert response.status_code == 200
+    assert b"Interactive map of Front Bed" in response.content
+    assert b"Rose &#x27;Peace&#x27;" in response.content
+    assert f'data-plant-location="{mapped.pk}"'.encode() in response.content
+    assert b"path edge" in response.content
+    assert b"Located on map" in response.content
+    assert b"Not placed on map" in response.content
+    assert b"Hover over a plant dot" in response.content
+    assert b"1 of 2 plant locations placed on the map" in response.content
+    assert b'focusBed: "' + str(bed.pk).encode() + b'"' in response.content
+
+
+def test_bed_detail_without_outline_offers_property_map(user_client):
+    bed = Bed.objects.create(name="New Bed")
+
+    response = user_client.get(reverse("bed-detail", args=[bed.pk]))
+
+    assert response.status_code == 200
+    assert b"This bed is not outlined yet" in response.content
+    assert reverse("map").encode() + f"?bed={bed.pk}".encode() in response.content
+    assert b"yardwise-map.js" not in response.content
 
 
 def test_map_page_renders_with_focus(user_client):
@@ -136,6 +180,15 @@ def test_map_page_renders_with_focus(user_client):
     assert b"choose from Photos or files" in r.content
     assert b"Master Property Map" in r.content
     assert b"Use the preserved Master Property Map" in r.content
+
+
+def test_bed_list_opens_profile_instead_of_edit_form(user_client):
+    bed = Bed.objects.create(name="Front Bed")
+
+    response = user_client.get(reverse("bed-list"))
+
+    assert reverse("bed-detail", args=[bed.pk]).encode() in response.content
+    assert reverse("bed-edit", args=[bed.pk]).encode() not in response.content
 
 
 def test_preserved_master_asset_is_exact_and_adopts_locked(user_client):

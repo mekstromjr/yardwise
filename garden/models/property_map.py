@@ -30,8 +30,10 @@ class PropertyMap(models.Model):
     )
     width = models.FloatField(default=1000)
     height = models.FloatField(default=750)
-    grid_cols = models.PositiveSmallIntegerField(default=10)
-    grid_rows = models.PositiveSmallIntegerField(default=8)
+    # Fine-grained property references: four times the original 10x8 density.
+    # Geometry remains in permanent map units; only derived cell labels change.
+    grid_cols = models.PositiveSmallIntegerField(default=40)
+    grid_rows = models.PositiveSmallIntegerField(default=32)
     grid_visible = models.BooleanField(default=True)
 
     class Meta:

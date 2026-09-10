@@ -700,6 +700,14 @@ nav.primary a.user-entry .user-name {
   overflow: hidden;
 }
 .property-map.selecting-bed-region { cursor: crosshair; }
+.property-map.map-editing-locked .leaflet-control-zoom {
+  opacity: 0.45;
+  pointer-events: none;
+}
+#trace-actions .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
 .bed-vertex-handle {
   width: 18px;
   height: 18px;

@@ -127,10 +127,15 @@ LOGIN_URL = "/admin/login/"
 
 LOGIN_REDIRECT_URL = "/"
 # Behind forward-auth, clearing only the Django session would re-authenticate
-# instantly from the proxy header; hand off to the outpost's sign-out, which
-# ends the Authentik session too.
+# instantly from the proxy header. Hand off to Authentik's supported OIDC
+# end-session endpoint so the upstream session ends too. Keep this configurable
+# in case the authentication host or application slug changes later.
+AUTHENTIK_LOGOUT_URL = os.environ.get(
+    "AUTHENTIK_LOGOUT_URL",
+    "https://auth.meklab.net/application/o/yardwise/end-session/",
+)
 LOGOUT_REDIRECT_URL = (
-    "/outpost.goauthentik.io/sign_out" if AUTH_TRUST_PROXY_HEADER else "/"
+    AUTHENTIK_LOGOUT_URL if AUTH_TRUST_PROXY_HEADER else "/"
 )
 
 LANGUAGE_CODE = "en-us"

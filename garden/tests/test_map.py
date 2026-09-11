@@ -226,6 +226,8 @@ def test_bed_detail_has_focused_map_and_coordinated_plant_sidebar(user_client):
     assert b"Hover over a plant dot" in response.content
     assert b"1 of 2 plant locations placed on the map" in response.content
     assert b'focusBed: "' + str(bed.pk).encode() + b'"' in response.content
+    assert reverse("map").encode() + b"?new_bed=1" in response.content
+    assert b"Outline another bed" in response.content
 
 
 def test_bed_detail_without_outline_offers_property_map(user_client):
@@ -249,6 +251,15 @@ def test_map_page_renders_with_focus(user_client):
     assert b"choose from Photos or files" in r.content
     assert b"Master Property Map" in r.content
     assert b"Use the preserved Master Property Map" in r.content
+
+
+def test_map_can_reopen_ready_to_outline_another_bed(user_client):
+    response = user_client.get(reverse("map"), {"new_bed": "1"})
+
+    assert response.status_code == 200
+    assert b"Save and outline another" in response.content
+    assert b"newBed: true" in response.content
+    assert b'<details class="section" style="margin-top:12px" open>' in response.content
 
 
 def test_bed_list_opens_profile_instead_of_edit_form(user_client):

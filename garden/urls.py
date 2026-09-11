@@ -59,6 +59,12 @@ urlpatterns = [
     path("map/", views_map.map_page, name="map"),
     path("map/data.json", views_map.map_data, name="map-data"),
     path("beds/<int:pk>/", views_map.bed_detail, name="bed-detail"),
+    path("beds/<int:pk>/photos/add/", views_map.bed_photo_add, name="bed-photo-add"),
+    path(
+        "beds/<int:pk>/photos/<int:photo_pk>/remove/",
+        views_map.bed_photo_remove,
+        name="bed-photo-remove",
+    ),
     path("map/beds/create/", views_map.bed_create_from_outline, name="map-bed-create"),
     path("map/beds/suggest/", views_map.bed_suggest_outline, name="map-bed-suggest"),
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),

@@ -21,7 +21,7 @@
 {% endif %}
 <div id="map" class="property-map" aria-label="Interactive property map"></div>
 
-<details class="section" style="margin-top:12px">
+<details class="section" style="margin-top:12px" {% if start_new_bed %}open{% endif %}>
   <summary>Edit the map</summary>
   <div class="inner">
     <div class="field">
@@ -96,6 +96,7 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap">
         <button class="btn small" type="submit">Save bed</button>
+        <button class="btn small secondary" type="submit" name="next" value="another">Save and outline another</button>
         <button class="btn small secondary" id="new-bed-back" type="button">Adjust outline</button>
         <button class="btn small secondary" id="new-bed-restart" type="button">Start over</button>
         <button class="btn small secondary" id="new-bed-cancel" type="button">Cancel</button>
@@ -163,6 +164,11 @@
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/yardwise-map.js' %}"></script>
 <script>
-  yardwiseMap({ focusPlant: "{{ focus_plant }}", focusBed: "{{ focus_bed }}", editor: true });
+  yardwiseMap({
+    focusPlant: "{{ focus_plant }}",
+    focusBed: "{{ focus_bed }}",
+    editor: true,
+    newBed: {% if start_new_bed %}true{% else %}false{% endif %}
+  });
 </script>
 {% endblock %}

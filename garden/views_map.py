@@ -78,6 +78,7 @@ def map_page(request):
     active_master = masters.filter(is_primary=True).first()
     focus_plant = request.GET.get("plant", "")
     focus_bed = request.GET.get("bed", "")
+    start_new_bed = request.GET.get("new_bed") == "1"
     return render(request, "garden/map/map.html", {
         "nav": "map",
         "pmap": pmap,
@@ -90,6 +91,7 @@ def map_page(request):
         ).exclude(kind=MapLayerKind.MASTER),
         "focus_plant": focus_plant,
         "focus_bed": focus_bed,
+        "start_new_bed": start_new_bed,
         "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
         "plants": Plant.objects.filter(garden=g, status="active"),
     })

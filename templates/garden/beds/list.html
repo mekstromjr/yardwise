@@ -12,6 +12,9 @@
 <section class="card">
   {% for bed in beds %}
     <a class="row" href="{% url 'bed-detail' bed.pk %}">
+      {% if bed.cover_photo %}
+        <img class="bed-list-thumb" src="{{ bed.cover_photo.thumb_url }}" alt="" loading="lazy">
+      {% endif %}
       <div class="grow">
         <div class="title">{{ bed.name }}</div>
         <div class="meta">{{ bed.code }}{% if bed.short_code %} · {{ bed.short_code }}{% endif %}{% if bed.bed_type %} · {{ bed.bed_type }}{% endif %}</div>

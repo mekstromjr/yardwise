@@ -69,6 +69,30 @@ function yardwiseMap(opts) {
     state.traceHistory.push(copyPoints(state.tracePts));
   }
 
+  function nearestTraceEdge(point) {
+    let nearest = 0;
+    let nearestPoint = point;
+    let nearestDistance = Infinity;
+    state.tracePts.forEach((start, index) => {
+      const end = state.tracePts[(index + 1) % state.tracePts.length];
+      const dx = end[0] - start[0];
+      const dy = end[1] - start[1];
+      const lengthSquared = dx * dx + dy * dy;
+      const amount = lengthSquared
+        ? Math.max(0, Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / lengthSquared))
+        : 0;
+      const x = start[0] + amount * dx;
+      const y = start[1] + amount * dy;
+      const distance = (point[0] - x) ** 2 + (point[1] - y) ** 2;
+      if (distance < nearestDistance) {
+        nearest = index;
+        nearestPoint = [Math.round(x), Math.round(y)];
+        nearestDistance = distance;
+      }
+    });
+    return { index: nearest, point: nearestPoint };
+  }
+
   function setOutlineActionsReady(ready) {
     const undo = document.getElementById("trace-undo");
     const save = document.getElementById("trace-finish");
@@ -150,10 +174,23 @@ function yardwiseMap(opts) {
     if (!state.tracePts.length) return;
     const points = state.tracePts.map(p => toLL(p[0], p[1]));
     state.traceLayer = (state.tracePts.length >= 3
-      ? L.polygon(points, { color: "#bc5f38", dashArray: "6 4", fillOpacity: 0.1 })
-      : L.polyline(points, { color: "#bc5f38", dashArray: "6 4", weight: 3 })
+      ? L.polygon(points, { color: "#bc5f38", dashArray: "6 4", fillOpacity: 0.1,
+                            bubblingMouseEvents: false })
+      : L.polyline(points, { color: "#bc5f38", dashArray: "6 4", weight: 3,
+                             bubblingMouseEvents: false })
     ).addTo(map);
     if (state.mode === "trace") {
+      if (state.tracePts.length >= 2) {
+        state.traceLayer.on("click", event => {
+          if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+          const point = fromLL(event.latlng).map(Math.round);
+          const edge = nearestTraceEdge(point);
+          rememberTrace();
+          state.tracePts.splice(edge.index + 1, 0, edge.point);
+          drawTrace();
+          setStatus("Added an outline point. Drag it to refine the bed edge, or undo.");
+        });
+      }
       const icon = L.divIcon({ className: "bed-vertex-handle", iconSize: [18, 18] });
       state.tracePts.forEach((point, index) => {
         const handle = L.marker(toLL(point[0], point[1]), {
@@ -221,7 +258,7 @@ function yardwiseMap(opts) {
       startTrace(null, result.boundary, result.suggested_name || "");
       setStatus(
         `Suggested ${result.suggested_name || "bed outline"} (${result.confidence} confidence). ` +
-        "Drag the round points to adjust the edges, then save the outline."
+        "Drag the round points, or click an edge to add another point, then save."
       );
       return;
     }

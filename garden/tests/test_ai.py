@@ -249,10 +249,27 @@ def test_bed_outline_suggestion_is_bounded_and_uses_existing_names(monkeypatch):
 
     assert result["suggested_name"] == "North fence bed"
     assert result["confidence"] == "high"
-    assert len(result["boundary"]) == 4
+    assert len(result["boundary"]) == ai.MIN_AI_BED_POINTS
     prompt = captured["messages"][0]["content"]
-    assert "paths, fences" in prompt and "user will adjust" in prompt
+    assert "brown-to-path" in prompt and "fences" in prompt and "user will adjust" in prompt
+    assert "direction change" in prompt
     assert "Rose Bed" in captured["messages"][1]["content"][0]["text"]
+
+
+def test_bed_outline_densifies_long_edges_without_changing_shape(monkeypatch):
+    monkeypatch.setattr(ai, "complete", lambda *args, **kwargs: (
+        '{"boundary": [[0, 0], [100, 0], [100, 100], [0, 100]], '
+        '"suggested_name": "Square bed", "confidence": "medium"}',
+        [],
+    ))
+
+    result = ai.suggest_bed_outline(_png(), 100, 100, [])
+
+    assert len(result["boundary"]) == ai.MIN_AI_BED_POINTS
+    assert all(
+        point[0] in (0, 100) or point[1] in (0, 100)
+        for point in result["boundary"]
+    )
 
 
 def test_bed_outline_rejects_points_outside_selected_crop(monkeypatch):

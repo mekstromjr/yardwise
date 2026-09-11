@@ -17,6 +17,8 @@ import urllib.error
 import urllib.request
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
+MIN_AI_BED_POINTS = 12
+MAX_AI_BED_POINTS = 32
 
 
 def enabled() -> bool:
@@ -121,13 +123,20 @@ def suggest_bed_outline(photo_file, width: int, height: int, existing_names: lis
     """
     system = (
         "You help a home gardener trace one garden bed in a selected crop of a property "
-        "plan. Identify the most likely managed planting area in the crop. Brown or "
-        "mulched areas often indicate garden beds; use visible paths, fences, building "
-        "edges, retaining edges, and other structures to infer its boundary. Do not "
-        "include paths, lawn, buildings, or neighboring beds. Return ONLY a JSON object "
-        "with keys: boundary, suggested_name, confidence. boundary must be 4-16 [x,y] "
+        "plan. Trace the visible map geometry rather than inventing a generic shape. On "
+        "this map, brown textured fill normally means the interior of a planting bed; "
+        "cream or pale fill normally means a path; gray or white areas are structures or "
+        "paving; and dark narrow lines may be fences, retaining edges, walls, or property "
+        "boundaries. Identify the one brown managed planting area that best fills the "
+        "user-selected crop. Follow the actual brown-to-path, brown-to-structure, fence, "
+        "wall, and retaining-edge transitions. Do not include paths, lawn, buildings, "
+        "or neighboring beds. Return ONLY a JSON object with keys: boundary, "
+        f"suggested_name, confidence. boundary must be {MIN_AI_BED_POINTS}-{MAX_AI_BED_POINTS} "
+        "[x,y] "
         f"points in clockwise order using crop pixels from [0,0] to [{width},{height}]. "
-        "Use enough points for curved or irregular edges without excessive detail. "
+        "Put points at every corner and direction change and distribute additional points "
+        "along curves so rounded and irregular edges closely match the map. Keep straight "
+        "runs straight; do not make a jagged approximation. "
         "suggested_name should be a short logical location-based name, not a guessed "
         "plant name. confidence must be low, medium, or high. If uncertain, still give "
         "the best conservative outline because the user will adjust it."
@@ -153,7 +162,7 @@ def suggest_bed_outline(photo_file, width: int, height: int, existing_names: lis
     boundary = proposed.get("boundary")
     if (
         not isinstance(boundary, list)
-        or not 4 <= len(boundary) <= 16
+        or not 4 <= len(boundary) <= MAX_AI_BED_POINTS
         or not all(
             isinstance(point, list)
             and len(point) == 2
@@ -164,6 +173,7 @@ def suggest_bed_outline(photo_file, width: int, height: int, existing_names: lis
         raise AIError("The suggested bed outline was incomplete.")
     if not all(0 <= point[0] <= width and 0 <= point[1] <= height for point in boundary):
         raise AIError("The suggested bed outline fell outside the selected region.")
+    boundary = _densify_polygon(boundary, MIN_AI_BED_POINTS)
     name = proposed.get("suggested_name", "")
     confidence = proposed.get("confidence", "low")
     return {
@@ -171,6 +181,23 @@ def suggest_bed_outline(photo_file, width: int, height: int, existing_names: lis
         "suggested_name": name.strip()[:100] if isinstance(name, str) else "",
         "confidence": confidence if confidence in ("low", "medium", "high") else "low",
     }
+
+
+def _densify_polygon(boundary: list[list[int | float]], minimum: int) -> list[list[float]]:
+    """Add review handles to long polygon edges without changing the proposed shape."""
+    points = [[float(point[0]), float(point[1])] for point in boundary]
+    while len(points) < minimum:
+        edge = max(
+            range(len(points)),
+            key=lambda index: (
+                (points[(index + 1) % len(points)][0] - points[index][0]) ** 2
+                + (points[(index + 1) % len(points)][1] - points[index][1]) ** 2
+            ),
+        )
+        start = points[edge]
+        end = points[(edge + 1) % len(points)]
+        points.insert(edge + 1, [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2])
+    return points
 
 
 # Plant fields AI enrichment may propose (empty-only; see enrich()).

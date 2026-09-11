@@ -809,6 +809,13 @@ nav.primary a.user-entry .user-name {
   box-shadow: 0 0 0 2px var(--card);
 }
 .bed-sidebar-note { margin: auto 12px 10px; }
+.bed-list-thumb {
+  width: 64px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
 .bed-map-empty { padding: 42px 20px; border: 1px solid var(--line); border-radius: var(--radius); }
 .bed-notes-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .bed-notes-card h2 { grid-column: 1 / -1; }

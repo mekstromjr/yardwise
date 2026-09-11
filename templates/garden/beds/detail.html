@@ -14,6 +14,7 @@
       </div>
     </div>
     <div class="quick-actions">
+      <a class="btn small" href="{% url 'bed-photo-add' bed.pk %}">Add bed photo</a>
       <a class="btn small secondary" href="{% url 'map' %}">Back to property</a>
       <a class="btn small secondary" href="{% url 'map' %}?new_bed=1">Outline another bed</a>
       <a class="btn small secondary" href="{% url 'bed-edit' bed.pk %}">Edit bed</a>
@@ -72,6 +73,42 @@
     </aside>
   </div>
 
+  {% if photos %}
+    <section class="card">
+      <h2>Bed photos</h2>
+      <div class="plant-grid photo-library">
+        {% for photo in photos %}
+          <div class="plant-photo-tile plant-photo-surface">
+            <button type="button" class="plant-photo-open" data-photo-open
+                    data-photo-src="{{ photo.web_url }}"
+                    data-photo-alt="{{ photo.caption|default:bed.name }}"
+                    aria-label="Enlarge bed photo{% if photo.caption %}: {{ photo.caption }}{% endif %}">
+              <img src="{{ photo.thumb_url }}" alt="{{ photo.caption|default:bed.name }}" loading="lazy">
+              <span class="photo-hover-info">
+                {% if photo.caption %}<strong>{{ photo.caption }}</strong>{% endif %}
+                {% if photo.taken_on %}<span>{{ photo.taken_on|date:"M j, Y" }}</span>{% endif %}
+                {% if photo.season or photo.year %}
+                  <span>{{ photo.get_season_display }}{% if photo.year %} {{ photo.year }}{% endif %}</span>
+                {% endif %}
+                {% for category in photo.categories.all %}<span>{{ category.name }}</span>{% endfor %}
+                {% if not photo.caption and not photo.taken_on and not photo.season and not photo.year and not photo.categories.all %}
+                  <span>No details added yet</span>
+                {% endif %}
+              </span>
+            </button>
+            <div class="plant-photo-actions">
+              <form method="post" action="{% url 'bed-photo-remove' bed.pk photo.pk %}"
+                    onsubmit="return confirm('Remove this photo from {{ bed.name|escapejs }}? The bed will not be deleted.')">
+                {% csrf_token %}
+                <button class="photo-delete-button" type="submit">Remove photo</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
   {% if bed.sun_notes or bed.soil_notes or bed.irrigation_notes or bed.notes %}
     <section class="card bed-notes-card">
       <h2>Bed notes</h2>
@@ -82,6 +119,23 @@
     </section>
   {% endif %}
 </div>
+
+{% if photos %}
+<dialog class="photo-lightbox" data-photo-lightbox aria-label="Bed photo viewer">
+  <div class="photo-lightbox-toolbar">
+    <button type="button" class="btn small secondary" data-photo-zoom-out aria-label="Zoom out">−</button>
+    <button type="button" class="btn small secondary" data-photo-zoom-reset>100%</button>
+    <button type="button" class="btn small secondary" data-photo-zoom-in aria-label="Zoom in">+</button>
+    <button type="button" class="btn small secondary photo-lightbox-close" data-photo-close>Close</button>
+  </div>
+  <div class="photo-lightbox-help">Scroll or use +/− to zoom. Drag a zoomed photo to move around it.</div>
+  <div class="photo-lightbox-stage" data-photo-stage>
+    <img data-photo-lightbox-image alt="">
+  </div>
+  <div class="photo-lightbox-info" data-photo-lightbox-info></div>
+</dialog>
+<script src="{% static 'js/photo-gallery.js' %}" defer></script>
+{% endif %}
 
 {% if bed.boundary %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>

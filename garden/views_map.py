@@ -169,6 +169,7 @@ def bed_detail(request, pk):
     return render(request, "garden/beds/detail.html", {
         "nav": "map",
         "bed": bed,
+        "photos": bed.photos.prefetch_related("categories").all()[:24],
         "locations": locations,
         "mapped_count": sum(
             loc.point_x is not None and loc.point_y is not None for loc in locations
@@ -176,6 +177,48 @@ def bed_detail(request, pk):
         "grid_cells": pmap.cells_for_polygon(bed.boundary or []),
         "active_master": active_master,
     })
+
+
+@login_required
+def bed_photo_add(request, pk):
+    """Attach a securely stored photo to a bed without changing its map geometry."""
+    from .forms import PhotoForm
+
+    bed = get_object_or_404(
+        Bed,
+        pk=pk,
+        garden=garden_for(request),
+        archived_at__isnull=True,
+    )
+    form = PhotoForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        photo = form.save(commit=False)
+        photo.uploaded_by = request.user
+        photo.garden = bed.garden
+        photo.save()
+        form.save_m2m()
+        bed.photos.add(photo)
+        return redirect("bed-detail", pk=bed.pk)
+    return render(request, "garden/beds/photo_form.html", {
+        "nav": "map",
+        "bed": bed,
+        "form": form,
+    })
+
+
+@login_required
+@require_POST
+def bed_photo_remove(request, pk, photo_pk):
+    """Detach one photo from a bed; the bed and any other links remain intact."""
+    bed = get_object_or_404(
+        Bed,
+        pk=pk,
+        garden=garden_for(request),
+        archived_at__isnull=True,
+    )
+    photo = get_object_or_404(bed.photos.all(), pk=photo_pk)
+    bed.photos.remove(photo)
+    return redirect("bed-detail", pk=bed.pk)
 
 
 @require_POST

@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from garden.models import Bed, MapLayer, MapLayerKind, Plant, PlantLocation, PropertyMap
+from garden.models import Bed, MapLayer, MapLayerKind, Photo, Plant, PlantLocation, PropertyMap
 
 pytestmark = pytest.mark.django_db
 
@@ -239,6 +239,52 @@ def test_bed_detail_without_outline_offers_property_map(user_client):
     assert b"This bed is not outlined yet" in response.content
     assert reverse("map").encode() + f"?bed={bed.pk}".encode() in response.content
     assert b"yardwise-map.js" not in response.content
+
+
+def test_bed_photo_can_be_uploaded_displayed_and_removed(
+    user_client, settings, tmp_path
+):
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    }
+    bed = Bed.objects.create(name="Kitchen Garden")
+    image = io.BytesIO()
+    Image.new("RGB", (30, 20), "brown").save(image, "PNG")
+
+    response = user_client.post(
+        reverse("bed-photo-add", args=[bed.pk]),
+        {
+            "file": SimpleUploadedFile("kitchen-bed.png", image.getvalue(), "image/png"),
+            "caption": "Early spring overview",
+        },
+    )
+
+    assert response.status_code == 302
+    assert response.url == reverse("bed-detail", args=[bed.pk])
+    photo = Photo.objects.get()
+    assert photo.garden == bed.garden
+    assert list(bed.photos.all()) == [photo]
+
+    detail = user_client.get(reverse("bed-detail", args=[bed.pk]))
+    assert b"Bed photos" in detail.content
+    assert b"Early spring overview" in detail.content
+    assert photo.thumb_url.encode() in detail.content
+
+    listing = user_client.get(reverse("bed-list"))
+    assert b"bed-list-thumb" in listing.content
+    assert photo.thumb_url.encode() in listing.content
+
+    removed = user_client.post(reverse("bed-photo-remove", args=[bed.pk, photo.pk]))
+    assert removed.status_code == 302
+    assert not bed.photos.exists()
+    assert Bed.objects.filter(pk=bed.pk).exists()
 
 
 def test_map_page_renders_with_focus(user_client):

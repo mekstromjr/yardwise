@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Add bed photo - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ bed.name }}</div>
+  <h1>Add a bed photo</h1>
+  <div class="sub">Attach a view of this bed without changing its map outline or plants.</div>
+</header>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="card errors">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="card">
+    {% for field in form %}
+      {% if field.name == "file" %}
+        <div class="field plant-photo-picker" data-photo-picker>
+          <label for="{{ field.id_for_label }}">Photo</label>
+          <label class="photo-drop-zone" for="{{ field.id_for_label }}" data-photo-drop>
+            {{ field }}
+            <img class="photo-drop-preview" data-photo-preview alt="Selected bed photo preview" hidden>
+            <span class="photo-drop-icon" data-photo-icon aria-hidden="true">▧</span>
+            <strong data-photo-title>Drag a bed photo here</strong>
+            <span class="help">or <span class="photo-picker-link">choose from Photos or files</span></span>
+          </label>
+          <button class="btn small secondary photo-remove" type="button"
+                  data-photo-remove hidden>Remove selected photo</button>
+          <div class="help" data-photo-message>The photo will be attached to {{ bed.name }}.</div>
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}
+        </div>
+      {% else %}
+        <div class="field">
+          {{ field.label_tag }}{{ field }}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <p class="quick-actions">
+    <button class="btn" type="submit" data-saving-label="Adding photo...">Add bed photo</button>
+    <a class="btn secondary" href="{% url 'bed-detail' bed.pk %}">Cancel</a>
+  </p>
+</form>
+<script src="{% static 'js/photo-picker.js' %}" defer></script>
+{% endblock %}

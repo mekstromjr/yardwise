@@ -697,14 +697,15 @@ def test_logout_flushes_session(user_client):
     assert user_client.get(reverse("today")).status_code == 302  # back to login
 
 
-def test_logout_redirect_targets_outpost_when_proxied(settings):
-    # The computed value ships in settings; assert the proxy branch exists in
-    # source so a refactor can't silently drop the outpost hand-off.
-    import inspect
-
+def test_logout_redirect_targets_authentik_end_session_when_proxied(user_client, settings):
     import config.settings as s
 
-    assert "/outpost.goauthentik.io/sign_out" in inspect.getsource(s)
+    settings.LOGOUT_REDIRECT_URL = s.AUTHENTIK_LOGOUT_URL
+
+    response = user_client.post(reverse("logout"))
+
+    assert response.status_code == 302
+    assert response.url == "https://auth.meklab.net/application/o/yardwise/end-session/"
 
 
 # --- Settings & beds (#10) ---------------------------------------------------

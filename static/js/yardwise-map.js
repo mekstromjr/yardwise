@@ -520,6 +520,7 @@ function yardwiseMap(opts) {
     document.getElementById("new-bed-restart").addEventListener("click", startRegionSelection);
     nameForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const outlineAnother = event.submitter?.value === "another";
       const name = nameInput.value.trim();
       if (!name) {
         nameError.textContent = "Give the garden bed a name.";
@@ -534,8 +535,14 @@ function yardwiseMap(opts) {
         return;
       }
       nameError.hidden = true;
-      setStatus(`Created ${res.bed.name} (${res.bed.code}). Reloading...`);
-      setTimeout(() => { window.location.href = res.bed.url; }, 600);
+      setStatus(outlineAnother
+        ? `Created ${res.bed.name} (${res.bed.code}). Ready for another bed...`
+        : `Created ${res.bed.name} (${res.bed.code}). Opening the bed...`);
+      setTimeout(() => {
+        window.location.href = outlineAnother
+          ? `${window.location.pathname}?new_bed=1`
+          : res.bed.url;
+      }, 600);
     });
     document.getElementById("place-start").addEventListener("click", () => {
       const sel = document.getElementById("place-plant");
@@ -545,5 +552,8 @@ function yardwiseMap(opts) {
     });
   }
 
-  fetch(opts.dataUrl || "/map/data.json").then(r => r.json()).then(render);
+  fetch(opts.dataUrl || "/map/data.json").then(r => r.json()).then(data => {
+    render(data);
+    if (opts.editor && opts.newBed) startRegionSelection();
+  });
 }

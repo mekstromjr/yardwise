@@ -27,6 +27,16 @@ function yardwiseMap(opts) {
 
   const toLL = (x, y) => [-y, x];
   const fromLL = (ll) => [ll.lng, -ll.lat];
+  function gridColumnLabel(index) {
+    let label = "";
+    let number = index + 1;
+    while (number) {
+      number -= 1;
+      label = String.fromCharCode(65 + number % 26) + label;
+      number = Math.floor(number / 26);
+    }
+    return label;
+  }
 
   function csrf() {
     return document.cookie.split("; ").find(r => r.startsWith("csrftoken="))?.split("=")[1] || "";
@@ -114,9 +124,17 @@ function yardwiseMap(opts) {
     }
   }
 
-  function plantTooltip(name) {
+  function plantTooltip(name, cell = "") {
     const content = document.createElement("span");
-    content.textContent = name;
+    const plantName = document.createElement("span");
+    plantName.textContent = name;
+    content.appendChild(plantName);
+    if (cell) {
+      const gridReference = document.createElement("small");
+      gridReference.className = "plant-grid-reference";
+      gridReference.textContent = `Grid ${cell}`;
+      content.appendChild(gridReference);
+    }
     return content;
   }
 
@@ -329,6 +347,7 @@ function yardwiseMap(opts) {
     state.data = data;
     const bounds = [toLL(0, data.height), toLL(data.width, 0)];
     let primaryMapBounds = null;
+    let primaryMapBox = null;
     map.setMaxBounds(L.latLngBounds(bounds).pad(0.2));
 
     // reference imagery - fit into the space preserving each image's natural
@@ -346,20 +365,64 @@ function yardwiseMap(opts) {
         lb = [toLL(x0, y0 + h), toLL(x0 + w, y0)];
       }
       L.imageOverlay(layer.url, lb, { opacity: layer.opacity }).addTo(map);
-      if (layer.primary && layer.kind === "master") primaryMapBounds = lb;
+      if (layer.primary && layer.kind === "master") {
+        primaryMapBounds = lb;
+        const [left, bottom] = fromLL(L.latLng(lb[0]));
+        const [right, top] = fromLL(L.latLng(lb[1]));
+        primaryMapBox = { left, right, top, bottom };
+      }
     });
+    // Establish the viewport before adding grid labels or other markers.
+    // Leaflet needs a center and zoom in order to position HTML marker icons.
+    map.fitBounds(opts.editor && primaryMapBounds ? primaryMapBounds : bounds);
     // grid overlay
     if (data.grid.visible) {
       const g = L.layerGroup().addTo(map);
+      const cellWidth = data.width / data.grid.cols;
+      const cellHeight = data.height / data.grid.rows;
       for (let c = 1; c < data.grid.cols; c++) {
-        const x = (data.width / data.grid.cols) * c;
+        const x = cellWidth * c;
         L.polyline([toLL(x, 0), toLL(x, data.height)],
-                   { color: "#2b3a2c", weight: 1, opacity: 0.15 }).addTo(g);
+                   { color: "#2b3a2c", weight: c % 5 === 0 ? 1.25 : 0.75,
+                     opacity: c % 5 === 0 ? 0.28 : 0.16, interactive: false }).addTo(g);
       }
       for (let r = 1; r < data.grid.rows; r++) {
-        const y = (data.height / data.grid.rows) * r;
+        const y = cellHeight * r;
         L.polyline([toLL(0, y), toLL(data.width, y)],
-                   { color: "#2b3a2c", weight: 1, opacity: 0.15 }).addTo(g);
+                   { color: "#2b3a2c", weight: r % 5 === 0 ? 1.25 : 0.75,
+                     opacity: r % 5 === 0 ? 0.28 : 0.16, interactive: false }).addTo(g);
+      }
+
+      const labelBox = primaryMapBox || {
+        left: 0, right: data.width, top: 0, bottom: data.height,
+      };
+      for (let c = 0; c < data.grid.cols; c++) {
+        if (c % 5 !== 0) continue;
+        const x = cellWidth * (c + 0.5);
+        if (x < labelBox.left || x > labelBox.right) continue;
+        const icon = L.divIcon({
+          className: "map-grid-label",
+          html: `<span>${gridColumnLabel(c)}</span>`,
+          iconSize: [24, 14], iconAnchor: [12, 7],
+        });
+        const label = L.marker(toLL(x, labelBox.top + cellHeight * 0.45), {
+          icon, interactive: false,
+        }).addTo(g);
+        label.getElement()?.setAttribute("aria-hidden", "true");
+      }
+      for (let r = 0; r < data.grid.rows; r++) {
+        if (r % 5 !== 0) continue;
+        const y = cellHeight * (r + 0.5);
+        if (y < labelBox.top || y > labelBox.bottom) continue;
+        const icon = L.divIcon({
+          className: "map-grid-label map-grid-row-label",
+          html: `<span>${r + 1}</span>`,
+          iconSize: [24, 14], iconAnchor: [12, 7],
+        });
+        const label = L.marker(toLL(labelBox.left + cellWidth * 0.55, y), {
+          icon, interactive: false,
+        }).addTo(g);
+        label.getElement()?.setAttribute("aria-hidden", "true");
       }
     }
     // beds
@@ -384,7 +447,7 @@ function yardwiseMap(opts) {
       if (opts.focusBed && String(pt.bed_id || "") !== String(opts.focusBed)) return;
       const m = L.circleMarker(toLL(pt.x, pt.y), {
         radius: 7, color: "#fffdf6", weight: 2, fillColor: "#bc5f38", fillOpacity: 0.95,
-      }).addTo(state.plantLayer).bindTooltip(plantTooltip(pt.name), {
+      }).addTo(state.plantLayer).bindTooltip(plantTooltip(pt.name, pt.cell), {
         direction: "top", offset: [0, -8], className: "plant-map-tooltip",
       });
       m.on("mouseover", () => highlightLocation(pt.loc_id, true));
@@ -399,8 +462,6 @@ function yardwiseMap(opts) {
     // gardens may still use a wider permanent coordinate space to preserve
     // saved plant and bed positions; focusing the master bounds avoids gray
     // letterboxing without changing any of that stored geometry.
-    map.fitBounds(opts.editor && primaryMapBounds ? primaryMapBounds : bounds);
-
     // Keep the normal property view quiet. Fine-grained plant markers appear
     // only after zooming in or entering a selected-bed/plant context.
     function updateProgressiveLayers() {

@@ -708,6 +708,12 @@ nav.primary a.user-entry .user-name {
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+.property-map-main {
+  width: min(100%, 720px);
+  height: auto;
+  aspect-ratio: 268 / 311;
+  margin-inline: auto;
+}
 .property-map.map-editing-locked { cursor: crosshair; }
 .property-map.map-editing-locked .leaflet-control-zoom {
   opacity: 0.45;

@@ -6,7 +6,16 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from garden.models import Bed, MapLayer, MapLayerKind, Photo, Plant, PlantLocation, PropertyMap
+from garden.models import (
+    Bed,
+    Garden,
+    MapLayer,
+    MapLayerKind,
+    Photo,
+    Plant,
+    PlantLocation,
+    PropertyMap,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -247,6 +256,42 @@ def test_bed_detail_has_focused_map_and_coordinated_plant_sidebar(user_client):
     assert b'focusBed: "' + str(bed.pk).encode() + b'"' in response.content
     assert reverse("map").encode() + b"?new_bed=1" in response.content
     assert b"Outline another bed" in response.content
+    adjust_url = reverse("map") + f"?bed={bed.pk}&amp;edit_bed=1"
+    assert adjust_url.encode() in response.content
+    assert b"Adjust bed edges" in response.content
+
+
+def test_adjust_bed_edges_link_opens_editor_for_selected_bed(user_client):
+    bed = Bed.objects.create(
+        name="Front Bed",
+        boundary=[[0, 0], [200, 0], [200, 200], [0, 200]],
+    )
+
+    response = user_client.get(
+        reverse("map"),
+        {"bed": str(bed.pk), "edit_bed": "1"},
+    )
+
+    assert response.status_code == 200
+    assert b'<details class="section" style="margin-top:12px" open>' in response.content
+    assert f'editBed: "{bed.pk}"'.encode() in response.content
+
+
+def test_adjust_bed_edges_ignores_bed_from_another_garden(user_client):
+    other_user = User.objects.create_user("other")
+    other_bed = Bed.objects.create(
+        garden=Garden.for_user(other_user),
+        name="Private Bed",
+        boundary=[[0, 0], [20, 0], [20, 20]],
+    )
+
+    response = user_client.get(
+        reverse("map"),
+        {"bed": str(other_bed.pk), "edit_bed": "1"},
+    )
+
+    assert response.status_code == 200
+    assert b"editBed: null" in response.content
 
 
 def test_bed_detail_without_outline_offers_property_map(user_client):

@@ -541,8 +541,16 @@ function yardwiseMap(opts) {
       }
       const res = await post(`/map/bed/${state.traceBedId}/boundary/`,
                              { boundary: state.tracePts });
-      setStatus(res.ok ? `Saved (cells ${res.cells.join(", ")}). Reloading...` : res.error);
-      if (res.ok) setTimeout(() => window.location.reload(), 600);
+      setStatus(res.ok ? `Saved (cells ${res.cells.join(", ")}). Opening the bed...` : res.error);
+      if (res.ok) {
+        const editedBed = state.data?.beds.find(
+          item => String(item.id) === String(state.traceBedId)
+        );
+        setTimeout(() => {
+          if (opts.editBed && editedBed?.url) window.location.href = editedBed.url;
+          else window.location.reload();
+        }, 600);
+      }
     });
     document.getElementById("trace-undo").addEventListener("click", () => {
       if (state.mode !== "trace" || !state.traceHistory.length) {
@@ -616,5 +624,18 @@ function yardwiseMap(opts) {
   fetch(opts.dataUrl || "/map/data.json").then(r => r.json()).then(data => {
     render(data);
     if (opts.editor && opts.newBed) startManualTrace();
+    if (opts.editor && opts.editBed) {
+      const bed = state.data?.beds.find(
+        item => String(item.id) === String(opts.editBed)
+      );
+      if (bed) {
+        const selector = document.getElementById("trace-bed");
+        if (selector) selector.value = String(bed.id);
+        startTrace(bed.id, bed.boundary || []);
+        setStatus(bed.boundary?.length
+          ? `Adjusting ${bed.name}. Drag a point, add a point, undo, or save the outline.`
+          : `Tap around ${bed.name} to draw its outline, then save.`);
+      }
+    }
   });
 }

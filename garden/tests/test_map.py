@@ -72,6 +72,7 @@ def test_map_bed_editor_has_manual_first_controls(user_client):
     response = user_client.get(reverse("map"))
 
     assert response.status_code == 200
+    assert b'class="property-map property-map-main"' in response.content
     assert b'id="trace-undo"' in response.content
     assert b'id="trace-restart"' in response.content
     assert b'id="trace-refine-ai"' in response.content

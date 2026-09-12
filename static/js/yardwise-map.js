@@ -328,6 +328,7 @@ function yardwiseMap(opts) {
   function render(data) {
     state.data = data;
     const bounds = [toLL(0, data.height), toLL(data.width, 0)];
+    let primaryMapBounds = null;
     map.setMaxBounds(L.latLngBounds(bounds).pad(0.2));
 
     // reference imagery - fit into the space preserving each image's natural
@@ -345,6 +346,7 @@ function yardwiseMap(opts) {
         lb = [toLL(x0, y0 + h), toLL(x0 + w, y0)];
       }
       L.imageOverlay(layer.url, lb, { opacity: layer.opacity }).addTo(map);
+      if (layer.primary && layer.kind === "master") primaryMapBounds = lb;
     });
     // grid overlay
     if (data.grid.visible) {
@@ -393,7 +395,11 @@ function yardwiseMap(opts) {
       });
       state.markers[pt.loc_id] = m;
     });
-    map.fitBounds(bounds);
+    // The main property view follows the portrait master map itself. Older
+    // gardens may still use a wider permanent coordinate space to preserve
+    // saved plant and bed positions; focusing the master bounds avoids gray
+    // letterboxing without changing any of that stored geometry.
+    map.fitBounds(opts.editor && primaryMapBounds ? primaryMapBounds : bounds);
 
     // Keep the normal property view quiet. Fine-grained plant markers appear
     // only after zooming in or entering a selected-bed/plant context.

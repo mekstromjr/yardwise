@@ -326,9 +326,16 @@ def bed_suggest_outline(request):
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return JsonResponse({"error": "Select a rectangular map region first."}, status=400)
 
+    guide_boundary = _boundary_from_payload(payload)
+    if guide_boundary is None:
+        return JsonResponse(
+            {"error": "Tap at least three points around the bed before using AI."},
+            status=400,
+        )
+
     if not ai.enabled():
         return JsonResponse(
-            {"error": "AI outlining is unavailable; adjust the selected rectangle manually."},
+            {"error": "AI refinement is unavailable; your manual outline is unchanged."},
             status=503,
         )
 
@@ -361,6 +368,14 @@ def bed_suggest_outline(request):
         return JsonResponse(
             {"error": "Select a larger region that overlaps the property map."}, status=400
         )
+    if not all(
+        left <= point[0] <= right and top <= point[1] <= bottom
+        for point in guide_boundary
+    ):
+        return JsonResponse(
+            {"error": "The AI refinement region must contain the manual outline."},
+            status=400,
+        )
 
     from PIL import Image as PILImage
     from PIL import UnidentifiedImageError
@@ -386,15 +401,23 @@ def bed_suggest_outline(request):
         return JsonResponse({"error": "The selected map image could not be read."}, status=400)
 
     try:
+        initial_boundary = [
+            [
+                round((point[0] - left) / (right - left) * crop_width),
+                round((point[1] - top) / (bottom - top) * crop_height),
+            ]
+            for point in guide_boundary
+        ]
         suggestion = ai.suggest_bed_outline(
             crop_file,
             crop_width,
             crop_height,
             list(Bed.objects.filter(garden=g).values_list("name", flat=True)),
+            initial_boundary=initial_boundary,
         )
     except ai.AIError:
         return JsonResponse(
-            {"error": "No clear bed edge was found. Adjust the rectangle manually."},
+            {"error": "No clearer bed edge was found. Your manual outline is unchanged."},
             status=422,
         )
 

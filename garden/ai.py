@@ -115,7 +115,13 @@ def identify(photo_file, question: str, region: str, context: str) -> dict:
     return out
 
 
-def suggest_bed_outline(photo_file, width: int, height: int, existing_names: list[str]) -> dict:
+def suggest_bed_outline(
+    photo_file,
+    width: int,
+    height: int,
+    existing_names: list[str],
+    initial_boundary: list[list[int | float]] | None = None,
+) -> dict:
     """Suggest a bed polygon within a user-selected map crop.
 
     The returned pixel coordinates are only a reviewable proposal. Saving the
@@ -123,8 +129,10 @@ def suggest_bed_outline(photo_file, width: int, height: int, existing_names: lis
     """
     system = (
         "You help a home gardener trace one garden bed in a selected crop of a property "
-        "plan. Trace the visible map geometry rather than inventing a generic shape. On "
-        "this map, brown textured fill normally means the interior of a planting bed; "
+        "plan. Trace the visible map geometry rather than inventing a generic shape. "
+        "The user may provide a manually clicked outline as a guide. Refine that same "
+        "bed to nearby visible edges; do not replace it with a different bed. On this "
+        "map, brown textured fill normally means the interior of a planting bed; "
         "cream or pale fill normally means a path; gray or white areas are structures or "
         "paving; and dark narrow lines may be fences, retaining edges, walls, or property "
         "boundaries. Identify the one brown managed planting area that best fills the "
@@ -145,6 +153,12 @@ def suggest_bed_outline(photo_file, width: int, height: int, existing_names: lis
         "Existing bed names to avoid duplicating: " + ", ".join(existing_names)
         if existing_names else "There are no existing bed names."
     )
+    if initial_boundary:
+        context += (
+            "\nThe user's manual outline in crop pixels is: "
+            f"{json.dumps(initial_boundary)}. Preserve its intended bed and refine its "
+            "points to the closest visible boundaries."
+        )
     raw, _sources = complete(
         [
             {"role": "system", "content": system},

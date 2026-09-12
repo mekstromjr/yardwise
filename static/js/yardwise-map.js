@@ -12,9 +12,7 @@ function yardwiseMap(opts) {
   });
   const state = { data: null, mode: "view", traceBedId: null, tracePts: [],
                   placePlantId: null, markers: {}, bedShapes: {}, traceLayer: null,
-                  traceHandles: [], selectionLayer: null, selectionStart: null,
-                  selectionMoved: false,
-                  suggestedName: "", traceHistory: [], traceInitialPts: [],
+                  traceHandles: [], suggestedName: "", traceHistory: [], traceInitialPts: [],
                   mapLocked: false, suggestionRequest: 0, plantLayer: L.layerGroup() };
   const traceActions = document.getElementById("trace-actions");
   const nameForm = document.getElementById("new-bed-name-form");
@@ -33,13 +31,20 @@ function yardwiseMap(opts) {
   function csrf() {
     return document.cookie.split("; ").find(r => r.startsWith("csrftoken="))?.split("=")[1] || "";
   }
-  async function post(url, body) {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-      body: JSON.stringify(body),
-    });
-    return r.json();
+  async function post(url, body, timeoutMs = 0) {
+    const controller = timeoutMs ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+        body: JSON.stringify(body),
+        signal: controller?.signal,
+      });
+      return r.json();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   function setStatus(msg) {
@@ -67,6 +72,7 @@ function yardwiseMap(opts) {
 
   function rememberTrace() {
     state.traceHistory.push(copyPoints(state.tracePts));
+    updateOutlineActions();
   }
 
   function nearestTraceEdge(point) {
@@ -93,11 +99,15 @@ function yardwiseMap(opts) {
     return { index: nearest, point: nearestPoint };
   }
 
-  function setOutlineActionsReady(ready) {
+  function updateOutlineActions(busy = false) {
     const undo = document.getElementById("trace-undo");
+    const restart = document.getElementById("trace-restart");
     const save = document.getElementById("trace-finish");
-    if (undo) undo.disabled = !ready;
-    if (save) save.disabled = !ready;
+    const refine = document.getElementById("trace-refine-ai");
+    if (undo) undo.disabled = busy || !state.traceHistory.length;
+    if (restart) restart.disabled = busy;
+    if (save) save.disabled = busy || state.tracePts.length < 3;
+    if (refine) refine.disabled = busy || state.tracePts.length < 3;
   }
 
   function plantTooltip(name) {
@@ -188,6 +198,7 @@ function yardwiseMap(opts) {
           rememberTrace();
           state.tracePts.splice(edge.index + 1, 0, edge.point);
           drawTrace();
+          updateOutlineActions();
           setStatus("Added an outline point. Drag it to refine the bed edge, or undo.");
         });
       }
@@ -220,61 +231,72 @@ function yardwiseMap(opts) {
     nameForm.hidden = true;
     nameError.hidden = true;
     traceActions.hidden = false;
-    setOutlineActionsReady(true);
+    updateOutlineActions();
     setStatus(bedId
       ? "Adjust the bed's outline, then save it"
       : "Adjust the new bed's outline, then save it");
   }
 
-  function selectionBounds(start, end) {
+  function outlineBounds(points) {
+    const xs = points.map(point => point[0]);
+    const ys = points.map(point => point[1]);
+    const left = Math.min(...xs);
+    const right = Math.max(...xs);
+    const top = Math.min(...ys);
+    const bottom = Math.max(...ys);
+    const padX = Math.max(20, (right - left) * 0.2);
+    const padY = Math.max(20, (bottom - top) * 0.2);
     return [
-      [Math.min(start[0], end[0]), Math.min(start[1], end[1])],
-      [Math.max(start[0], end[0]), Math.max(start[1], end[1])],
+      [Math.max(0, Math.round(left - padX)), Math.max(0, Math.round(top - padY))],
+      [Math.min(state.data.width, Math.round(right + padX)),
+       Math.min(state.data.height, Math.round(bottom + padY))],
     ];
   }
 
-  function rectanglePoints(bounds) {
-    const [[left, top], [right, bottom]] = bounds;
-    return [[left, top], [right, top], [right, bottom], [left, bottom]];
-  }
-
-  async function requestBedSuggestion(bounds) {
+  async function requestBedRefinement() {
+    if (state.mode !== "trace" || state.tracePts.length < 3) {
+      setStatus("Tap at least 3 points around the bed before asking AI to refine it.");
+      return;
+    }
     const requestId = ++state.suggestionRequest;
+    const originalPoints = copyPoints(state.tracePts);
+    const initialPoints = copyPoints(state.traceInitialPts);
+    const bedId = state.traceBedId;
+    const suggestedName = state.suggestedName;
+    const bounds = outlineBounds(originalPoints);
     state.mode = "suggesting";
     setMapLocked(true);
-    setOutlineActionsReady(false);
-    el.classList.remove("selecting-bed-region");
-    setStatus("Studying the selected region for bed edges...");
+    updateOutlineActions(true);
+    setStatus("Refining your outline against the visible bed edges...");
     let result;
     try {
-      result = await post("/map/beds/suggest/", { bounds });
+      result = await post("/map/beds/suggest/", { bounds, boundary: originalPoints }, 30000);
     } catch (error) {
-      result = { error: "The outline service did not answer." };
+      result = { error: error.name === "AbortError"
+        ? "AI refinement took too long."
+        : "The outline service did not answer." };
     }
     if (requestId !== state.suggestionRequest || state.mode !== "suggesting") return;
-    if (state.selectionLayer) state.selectionLayer.remove();
-    state.selectionLayer = null;
     if (result.ok) {
-      startTrace(null, result.boundary, result.suggested_name || "");
+      startTrace(bedId, result.boundary, result.suggested_name || suggestedName);
+      state.traceInitialPts = initialPoints;
+      state.traceHistory = [originalPoints];
+      updateOutlineActions();
       setStatus(
-        `Suggested ${result.suggested_name || "bed outline"} (${result.confidence} confidence). ` +
-        "Drag the round points, or click an edge to add another point, then save."
+        `AI refinement ready (${result.confidence} confidence). ` +
+        "Review the round points, undo or adjust them if needed, then save."
       );
       return;
     }
-    startTrace(null, rectanglePoints(bounds));
-    setStatus(`${result.error} Drag the round points to adjust the outline, then save it.`);
+    startTrace(bedId, originalPoints, suggestedName);
+    state.traceInitialPts = initialPoints;
+    setStatus(`${result.error} Your manual outline is unchanged and ready to save.`);
   }
 
-  function startRegionSelection() {
+  function startManualTrace() {
     cancelTrace();
-    state.mode = "select-region";
-    state.selectionStart = null;
-    setMapLocked(true);
-    el.classList.add("selecting-bed-region");
-    traceActions.hidden = false;
-    setOutlineActionsReady(false);
-    setStatus("Drag over one garden-bed area, or tap two opposite corners, to select it.");
+    startTrace(null);
+    setStatus("Tap multiple points around the bed edge. Use Undo as needed, then save or refine with AI.");
   }
 
   function cancelTrace() {
@@ -286,11 +308,7 @@ function yardwiseMap(opts) {
     state.traceHistory = [];
     state.suggestedName = "";
     drawTrace();
-    if (state.selectionLayer) state.selectionLayer.remove();
-    state.selectionLayer = null;
-    state.selectionStart = null;
     setMapLocked(false);
-    el.classList.remove("selecting-bed-region");
     traceActions.hidden = true;
     nameForm.hidden = true;
     nameError.hidden = true;
@@ -404,24 +422,12 @@ function yardwiseMap(opts) {
 
   map.on("click", async (e) => {
     const [x, y] = fromLL(e.latlng);
-    if (state.mode === "select-region") {
-      const point = [Math.round(x), Math.round(y)];
-      if (!state.selectionStart) {
-        state.selectionStart = point;
-        setStatus("Now tap the opposite corner of the garden-bed region.");
-        return;
-      }
-      const bounds = selectionBounds(state.selectionStart, point);
-      if (bounds[1][0] - bounds[0][0] < 10 || bounds[1][1] - bounds[0][1] < 10) {
-        setStatus("Choose an opposite corner to make the selected region larger.");
-        return;
-      }
-      requestBedSuggestion(bounds);
-    } else if (state.mode === "trace") {
+    if (state.mode === "trace") {
       rememberTrace();
       state.tracePts.push([Math.round(x), Math.round(y)]);
       drawTrace();
-      setStatus(`Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"} - tap "Save outline" when done`);
+      updateOutlineActions();
+      setStatus(`Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"} - keep tapping around the edge, then save or refine with AI.`);
     } else if (state.mode === "place") {
       const res = await post(`/map/plant/${state.placePlantId}/point/`, {
         x: Math.round(x), y: Math.round(y),
@@ -432,32 +438,9 @@ function yardwiseMap(opts) {
     }
   });
 
-  map.on("mousedown", e => {
-    if (state.mode !== "select-region" || state.selectionStart) return;
-    state.selectionStart = fromLL(e.latlng).map(Math.round);
-    state.selectionMoved = false;
-  });
-  map.on("mousemove", e => {
-    if (state.mode !== "select-region" || !state.selectionStart) return;
-    const current = fromLL(e.latlng).map(Math.round);
-    const bounds = selectionBounds(state.selectionStart, current);
-    state.selectionMoved = (
-      bounds[1][0] - bounds[0][0] >= 10 && bounds[1][1] - bounds[0][1] >= 10
-    );
-    if (state.selectionLayer) state.selectionLayer.remove();
-    state.selectionLayer = L.rectangle(
-      [toLL(bounds[0][0], bounds[1][1]), toLL(bounds[1][0], bounds[0][1])],
-      { color: "#bc5f38", weight: 2, dashArray: "6 4", fillOpacity: 0.12 }
-    ).addTo(map);
-  });
-  map.on("mouseup", e => {
-    if (state.mode !== "select-region" || !state.selectionStart || !state.selectionMoved) return;
-    const bounds = selectionBounds(state.selectionStart, fromLL(e.latlng).map(Math.round));
-    requestBedSuggestion(bounds);
-  });
-
   if (opts.editor) {
-    document.getElementById("trace-new-start").addEventListener("click", startRegionSelection);
+    document.getElementById("trace-new-start").addEventListener("click", startManualTrace);
+    document.getElementById("trace-refine-ai").addEventListener("click", requestBedRefinement);
     document.getElementById("trace-existing-start").addEventListener("click", () => {
       const sel = document.getElementById("trace-bed");
       if (!sel.value) { setStatus("Pick the existing bed you want to adjust"); return; }
@@ -492,6 +475,7 @@ function yardwiseMap(opts) {
       }
       state.tracePts = state.traceHistory.pop();
       drawTrace();
+      updateOutlineActions();
       setStatus(state.tracePts.length
         ? `Undid the last change. The outline has ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"}.`
         : "Tap the first point on the bed's edge");
@@ -501,12 +485,13 @@ function yardwiseMap(opts) {
         state.tracePts = copyPoints(state.traceInitialPts);
         state.traceHistory = [];
         drawTrace();
+        updateOutlineActions();
         setStatus(state.tracePts.length
           ? "Restored the bed's saved outline. Adjust it or save when ready."
           : "Starting over. Tap around the bed's edge, then save.");
         return;
       }
-      startRegionSelection();
+      startManualTrace();
     });
     document.getElementById("trace-cancel").addEventListener("click", cancelTrace);
     document.getElementById("new-bed-cancel").addEventListener("click", cancelTrace);
@@ -514,10 +499,10 @@ function yardwiseMap(opts) {
       state.mode = "trace";
       nameForm.hidden = true;
       traceActions.hidden = false;
-      setOutlineActionsReady(true);
+      updateOutlineActions();
       setStatus("Adjust the outline, then save it again");
     });
-    document.getElementById("new-bed-restart").addEventListener("click", startRegionSelection);
+    document.getElementById("new-bed-restart").addEventListener("click", startManualTrace);
     nameForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const outlineAnother = event.submitter?.value === "another";
@@ -554,6 +539,6 @@ function yardwiseMap(opts) {
 
   fetch(opts.dataUrl || "/map/data.json").then(r => r.json()).then(data => {
     render(data);
-    if (opts.editor && opts.newBed) startRegionSelection();
+    if (opts.editor && opts.newBed) startManualTrace();
   });
 }

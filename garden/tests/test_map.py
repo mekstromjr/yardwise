@@ -68,12 +68,15 @@ def test_create_and_name_bed_from_map_outline(user_client):
     assert body["cells"]
 
 
-def test_map_bed_editor_has_save_undo_and_restart_controls(user_client):
+def test_map_bed_editor_has_manual_first_controls(user_client):
     response = user_client.get(reverse("map"))
 
     assert response.status_code == 200
     assert b'id="trace-undo"' in response.content
     assert b'id="trace-restart"' in response.content
+    assert b'id="trace-refine-ai"' in response.content
+    assert b">Refine with AI<" in response.content
+    assert b"Tap multiple points around a garden bed" in response.content
     assert b">Save outline<" in response.content
     assert b'id="new-bed-restart"' in response.content
     assert b">Save bed<" in response.content
@@ -117,8 +120,14 @@ def test_ai_bed_outline_crops_region_and_returns_reviewable_map_points(
     _upload_png(user_client, "property plan", 1000, 750)
     captured = {}
 
-    def fake_suggest(photo, width, height, names):
-        captured.update(width=width, height=height, names=names, filename=photo.name)
+    def fake_suggest(photo, width, height, names, initial_boundary=None):
+        captured.update(
+            width=width,
+            height=height,
+            names=names,
+            filename=photo.name,
+            initial_boundary=initial_boundary,
+        )
         return {
             "boundary": [[0, 0], [200, 0], [200, 200], [0, 200]],
             "suggested_name": "House-side bed",
@@ -128,7 +137,10 @@ def test_ai_bed_outline_crops_region_and_returns_reviewable_map_points(
     monkeypatch.setattr("garden.views_map.ai.suggest_bed_outline", fake_suggest)
     response = user_client.post(
         reverse("map-bed-suggest"),
-        json.dumps({"bounds": [[100, 100], [300, 300]]}),
+        json.dumps({
+            "bounds": [[100, 100], [300, 300]],
+            "boundary": [[110, 110], [290, 110], [290, 290], [110, 290]],
+        }),
         content_type="application/json",
     )
 
@@ -144,6 +156,7 @@ def test_ai_bed_outline_crops_region_and_returns_reviewable_map_points(
         "height": 200,
         "names": [],
         "filename": "selected-map-region.jpg",
+        "initial_boundary": [[10, 10], [190, 10], [190, 190], [10, 190]],
     }
     assert not Bed.objects.exists()  # suggestions never become records automatically
 
@@ -159,11 +172,14 @@ def test_ai_bed_outline_requires_valid_region_and_ai(user_client, monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     unavailable = user_client.post(
         reverse("map-bed-suggest"),
-        json.dumps({"bounds": [[0, 0], [100, 100]]}),
+        json.dumps({
+            "bounds": [[0, 0], [100, 100]],
+            "boundary": [[10, 10], [90, 10], [90, 90], [10, 90]],
+        }),
         content_type="application/json",
     )
     assert unavailable.status_code == 503
-    assert b"adjust the selected rectangle manually" in unavailable.content
+    assert b"manual outline is unchanged" in unavailable.content
 
 
 def test_place_plant_resolves_containing_bed(user_client):

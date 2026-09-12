@@ -245,7 +245,13 @@ def test_bed_outline_suggestion_is_bounded_and_uses_existing_names(monkeypatch):
         )
 
     monkeypatch.setattr(ai, "complete", fake_complete)
-    result = ai.suggest_bed_outline(_png(), 200, 100, ["Rose Bed"])
+    result = ai.suggest_bed_outline(
+        _png(),
+        200,
+        100,
+        ["Rose Bed"],
+        initial_boundary=[[12, 12], [188, 12], [180, 88], [20, 88]],
+    )
 
     assert result["suggested_name"] == "North fence bed"
     assert result["confidence"] == "high"
@@ -254,6 +260,7 @@ def test_bed_outline_suggestion_is_bounded_and_uses_existing_names(monkeypatch):
     assert "brown-to-path" in prompt and "fences" in prompt and "user will adjust" in prompt
     assert "direction change" in prompt
     assert "Rose Bed" in captured["messages"][1]["content"][0]["text"]
+    assert "manual outline" in captured["messages"][1]["content"][0]["text"]
 
 
 def test_bed_outline_densifies_long_edges_without_changing_shape(monkeypatch):

@@ -732,7 +732,7 @@ def _activate_master(garden, layer):
         pmap.height = layer.natural_height
     # The master defines the clean default. Grid/record geometry remains in
     # the same permanent coordinate space and is revealed interactively.
-    pmap.grid_visible = False
+    pmap.grid_visible = True
     pmap.save(update_fields=["width", "height", "grid_visible"])
 
     _fit_master_to_canvas(pmap, layer)

@@ -355,7 +355,7 @@ def test_preserved_master_asset_is_exact_and_adopts_locked(user_client):
         assert installed.read() == source
     pmap = _pmap(user_client)
     assert (pmap.width, pmap.height) == (1072.0, 1244.0)
-    assert not pmap.grid_visible
+    assert pmap.grid_visible
 
 
 def test_master_adoption_preserves_existing_geometry(user_client):

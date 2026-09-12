@@ -719,6 +719,31 @@ nav.primary a.user-entry .user-name {
   opacity: 0.45;
   pointer-events: none;
 }
+.map-grid-label {
+  background: transparent;
+  border: 0;
+  pointer-events: none;
+}
+.map-grid-label span {
+  min-width: 16px;
+  height: 14px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  background: rgb(255 253 246 / 0.78);
+  color: var(--fir-deep);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 800 9px/1 var(--body);
+  box-shadow: 0 0 0 1px rgb(43 58 44 / 0.12);
+}
+.map-grid-row-label span { color: var(--terracotta); }
+.plant-grid-reference {
+  color: var(--ink-soft);
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+}
 #trace-actions .btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;

@@ -69,7 +69,7 @@
     </details>
     <div class="field">
       <strong>Garden beds</strong>
-      <div class="help">Select a region of the map. YardWise will hold the map still while AI follows the visible brown bed, paths, fences, and structures. Drag the suggested points or click an outline edge to add a point. You can undo a change or start over before saving.</div>
+      <div class="help">Tap multiple points around a garden bed to draw its boundary. The map stays still while you work. You can drag points, click an outline edge to add another point, undo, or start over. When your outline is ready, save it directly or optionally ask AI to refine it against the visible brown bed, paths, fences, and structures.</div>
     </div>
     <div class="field" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
       <button class="btn small" id="trace-new-start" type="button">Outline a new bed</button>
@@ -84,6 +84,7 @@
     <div class="field" id="trace-actions" hidden style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
       <button class="btn small secondary" id="trace-undo" type="button">Undo</button>
       <button class="btn small secondary" id="trace-restart" type="button">Start over</button>
+      <button class="btn small secondary" id="trace-refine-ai" type="button">Refine with AI</button>
       <button class="btn small" id="trace-finish" type="button">Save outline</button>
       <button class="btn small secondary" id="trace-cancel" type="button">Cancel</button>
     </div>

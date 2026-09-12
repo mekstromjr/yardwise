@@ -17,6 +17,7 @@
       <a class="btn small" href="{% url 'bed-photo-add' bed.pk %}">Add bed photo</a>
       <a class="btn small secondary" href="{% url 'map' %}">Back to property</a>
       <a class="btn small secondary" href="{% url 'map' %}?new_bed=1">Outline another bed</a>
+      <a class="btn small secondary" href="{% url 'map' %}?bed={{ bed.pk }}&amp;edit_bed=1">Adjust bed edges</a>
       <a class="btn small secondary" href="{% url 'bed-edit' bed.pk %}">Edit bed</a>
     </div>
   </header>

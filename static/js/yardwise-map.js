@@ -104,10 +104,14 @@ function yardwiseMap(opts) {
     const restart = document.getElementById("trace-restart");
     const save = document.getElementById("trace-finish");
     const refine = document.getElementById("trace-refine-ai");
+    const count = document.getElementById("trace-point-count");
     if (undo) undo.disabled = busy || !state.traceHistory.length;
     if (restart) restart.disabled = busy;
     if (save) save.disabled = busy || state.tracePts.length < 3;
     if (refine) refine.disabled = busy || state.tracePts.length < 3;
+    if (count) {
+      count.textContent = `${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"}`;
+    }
   }
 
   function plantTooltip(name) {
@@ -184,9 +188,9 @@ function yardwiseMap(opts) {
     if (!state.tracePts.length) return;
     const points = state.tracePts.map(p => toLL(p[0], p[1]));
     state.traceLayer = (state.tracePts.length >= 3
-      ? L.polygon(points, { color: "#bc5f38", dashArray: "6 4", fillOpacity: 0.1,
+      ? L.polygon(points, { color: "#bc5f38", weight: 4, opacity: 1, fillOpacity: 0.18,
                             bubblingMouseEvents: false })
-      : L.polyline(points, { color: "#bc5f38", dashArray: "6 4", weight: 3,
+      : L.polyline(points, { color: "#bc5f38", weight: 4, opacity: 1,
                              bubblingMouseEvents: false })
     ).addTo(map);
     if (state.mode === "trace") {
@@ -202,10 +206,15 @@ function yardwiseMap(opts) {
           setStatus("Added an outline point. Drag it to refine the bed edge, or undo.");
         });
       }
-      const icon = L.divIcon({ className: "bed-vertex-handle", iconSize: [18, 18] });
       state.tracePts.forEach((point, index) => {
+        const icon = L.divIcon({
+          className: "bed-vertex-marker",
+          html: `<span class="bed-vertex-dot${index === 0 ? " is-first" : ""}">${index + 1}</span>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
         const handle = L.marker(toLL(point[0], point[1]), {
-          draggable: true, icon, keyboard: true,
+          draggable: true, icon, keyboard: true, zIndexOffset: 1000,
           title: `Move outline point ${index + 1}`,
         }).addTo(map);
         handle.on("dragstart", rememberTrace);

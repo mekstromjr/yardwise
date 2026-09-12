@@ -708,7 +708,7 @@ nav.primary a.user-entry .user-name {
   box-shadow: var(--shadow);
   overflow: hidden;
 }
-.property-map.selecting-bed-region { cursor: crosshair; }
+.property-map.map-editing-locked { cursor: crosshair; }
 .property-map.map-editing-locked .leaflet-control-zoom {
   opacity: 0.45;
   pointer-events: none;

@@ -26,6 +26,7 @@
   --radius-sm: 9px;
   --shadow: 0 1px 2px rgb(43 58 44 / 0.06), 0 4px 14px rgb(43 58 44 / 0.07);
   --nav-h: 62px;
+  --desktop-nav-w: 190px;
 }
 
 * { box-sizing: border-box; }
@@ -349,11 +350,11 @@ nav.primary a.user-entry .user-name {
 }
 
 @media (min-width: 900px) {
-  body { padding-bottom: 0; padding-left: 190px; }
+  body { padding-bottom: 0; padding-left: var(--desktop-nav-w); }
   .wrap { max-width: 760px; }
   nav.primary {
     top: 0; right: auto; bottom: 0;
-    width: 190px; height: auto;
+    width: var(--desktop-nav-w); height: auto;
     flex-direction: column;
     justify-content: flex-start;
     border-top: none; border-right: 1px solid var(--line);
@@ -690,6 +691,14 @@ nav.primary a.user-entry .user-name {
   width: min(calc(100vw - 32px), 1120px);
   margin-left: 50%;
   transform: translateX(-50%);
+}
+@media (min-width: 900px) {
+  .map-page-shell {
+    /* The viewport also contains the fixed sidebar. Keep the wide map centered
+       in the remaining page area so its heading and controls cannot slide
+       underneath the navigation when the browser window is narrower. */
+    width: min(calc(100vw - var(--desktop-nav-w) - 32px), 1120px);
+  }
 }
 .property-map {
   height: clamp(320px, 48vh, 520px);

@@ -75,6 +75,8 @@ def test_map_bed_editor_has_manual_first_controls(user_client):
     assert b'id="trace-undo"' in response.content
     assert b'id="trace-restart"' in response.content
     assert b'id="trace-refine-ai"' in response.content
+    assert b'id="trace-point-count"' in response.content
+    assert b"0 points" in response.content
     assert b">Refine with AI<" in response.content
     assert b"Tap multiple points around a garden bed" in response.content
     assert b">Save outline<" in response.content

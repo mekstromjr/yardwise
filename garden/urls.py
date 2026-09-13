@@ -65,6 +65,11 @@ urlpatterns = [
         views_map.bed_photo_remove,
         name="bed-photo-remove",
     ),
+    path(
+        "beds/<int:pk>/photos/<int:photo_pk>/make-primary/",
+        views_map.bed_photo_make_primary,
+        name="bed-photo-make-primary",
+    ),
     path("map/beds/create/", views_map.bed_create_from_outline, name="map-bed-create"),
     path("map/beds/suggest/", views_map.bed_suggest_outline, name="map-bed-suggest"),
     path("map/bed/<int:pk>/boundary/", views_map.bed_boundary, name="map-bed-boundary"),

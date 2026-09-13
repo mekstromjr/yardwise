@@ -380,32 +380,34 @@ function yardwiseMap(opts) {
       const g = L.layerGroup().addTo(map);
       const cellWidth = data.width / data.grid.cols;
       const cellHeight = data.height / data.grid.rows;
+      const gridBox = primaryMapBox || {
+        left: 0, right: data.width, top: 0, bottom: data.height,
+      };
       for (let c = 1; c < data.grid.cols; c++) {
         const x = cellWidth * c;
-        L.polyline([toLL(x, 0), toLL(x, data.height)],
+        if (x <= gridBox.left || x >= gridBox.right) continue;
+        L.polyline([toLL(x, gridBox.top), toLL(x, gridBox.bottom)],
                    { color: "#2b3a2c", weight: c % 5 === 0 ? 1.25 : 0.75,
                      opacity: c % 5 === 0 ? 0.28 : 0.16, interactive: false }).addTo(g);
       }
       for (let r = 1; r < data.grid.rows; r++) {
         const y = cellHeight * r;
-        L.polyline([toLL(0, y), toLL(data.width, y)],
+        if (y <= gridBox.top || y >= gridBox.bottom) continue;
+        L.polyline([toLL(gridBox.left, y), toLL(gridBox.right, y)],
                    { color: "#2b3a2c", weight: r % 5 === 0 ? 1.25 : 0.75,
                      opacity: r % 5 === 0 ? 0.28 : 0.16, interactive: false }).addTo(g);
       }
 
-      const labelBox = primaryMapBox || {
-        left: 0, right: data.width, top: 0, bottom: data.height,
-      };
       for (let c = 0; c < data.grid.cols; c++) {
         if (c % 5 !== 0) continue;
         const x = cellWidth * (c + 0.5);
-        if (x < labelBox.left || x > labelBox.right) continue;
+        if (x < gridBox.left || x > gridBox.right) continue;
         const icon = L.divIcon({
           className: "map-grid-label",
           html: `<span>${gridColumnLabel(c)}</span>`,
           iconSize: [24, 14], iconAnchor: [12, 7],
         });
-        const label = L.marker(toLL(x, labelBox.top + cellHeight * 0.45), {
+        const label = L.marker(toLL(x, gridBox.top + cellHeight * 0.45), {
           icon, interactive: false,
         }).addTo(g);
         label.getElement()?.setAttribute("aria-hidden", "true");
@@ -413,13 +415,13 @@ function yardwiseMap(opts) {
       for (let r = 0; r < data.grid.rows; r++) {
         if (r % 5 !== 0) continue;
         const y = cellHeight * (r + 0.5);
-        if (y < labelBox.top || y > labelBox.bottom) continue;
+        if (y < gridBox.top || y > gridBox.bottom) continue;
         const icon = L.divIcon({
           className: "map-grid-label map-grid-row-label",
           html: `<span>${r + 1}</span>`,
           iconSize: [24, 14], iconAnchor: [12, 7],
         });
-        const label = L.marker(toLL(labelBox.left + cellWidth * 0.55, y), {
+        const label = L.marker(toLL(gridBox.left + cellWidth * 0.55, y), {
           icon, interactive: false,
         }).addTo(g);
         label.getElement()?.setAttribute("aria-hidden", "true");

@@ -105,7 +105,7 @@ def bed_list(request):
         bed.plant_count = bed.plant_locations.filter(
             is_current=True, plant__status="active"
         ).count()
-    return render(request, "garden/beds/list.html", {"nav": "me", "beds": beds})
+    return render(request, "garden/beds/list.html", {"nav": "beds", "beds": beds})
 
 
 @login_required
@@ -123,7 +123,7 @@ def bed_form(request, pk=None):
         if bed else []
     )
     return render(request, "garden/beds/form.html", {
-        "nav": "me", "form": form, "bed": bed, "plants": plants,
+        "nav": "beds", "form": form, "bed": bed, "plants": plants,
     })
 
 

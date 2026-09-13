@@ -22,6 +22,22 @@
     </div>
   </header>
 
+  {% if bed.primary_photo %}
+    <div class="card plant-photo-hero plant-photo-surface bed-photo-hero">
+      <button type="button" class="plant-photo-open plant-photo-hero-button"
+              data-photo-open data-photo-src="{{ bed.primary_photo.web_url }}"
+              data-photo-alt="{{ bed.primary_photo.caption|default:bed.name }}">
+        <img src="{{ bed.primary_photo.web_url }}" alt="{{ bed.primary_photo.caption|default:bed.name }}">
+        <span class="photo-hover-info">
+          {% if bed.primary_photo.caption %}<strong>{{ bed.primary_photo.caption }}</strong>{% endif %}
+          {% if bed.primary_photo.taken_on %}<span>{{ bed.primary_photo.taken_on|date:"M j, Y" }}</span>{% endif %}
+          {% for category in bed.primary_photo.categories.all %}<span>{{ category.name }}</span>{% endfor %}
+        </span>
+        <span class="photo-open-hint">Click to enlarge and zoom</span>
+      </button>
+    </div>
+  {% endif %}
+
   <div class="bed-map-workspace">
     <section class="bed-map-panel" aria-labelledby="bed-map-heading">
       <h2 id="bed-map-heading" class="visually-hidden">{{ bed.name }} map</h2>
@@ -98,6 +114,14 @@
               </span>
             </button>
             <div class="plant-photo-actions">
+              {% if bed.primary_photo_id == photo.pk %}
+                <span class="main-photo-label">Primary photo</span>
+              {% else %}
+                <form method="post" action="{% url 'bed-photo-make-primary' bed.pk photo.pk %}">
+                  {% csrf_token %}
+                  <button class="photo-main-button" type="submit">Make primary photo</button>
+                </form>
+              {% endif %}
               <form method="post" action="{% url 'bed-photo-remove' bed.pk photo.pk %}"
                     onsubmit="return confirm('Remove this photo from {{ bed.name|escapejs }}? The bed will not be deleted.')">
                 {% csrf_token %}

@@ -335,11 +335,15 @@ def test_bed_photo_can_be_uploaded_displayed_and_removed(
     photo = Photo.objects.get()
     assert photo.garden == bed.garden
     assert list(bed.photos.all()) == [photo]
+    bed.refresh_from_db()
+    assert bed.primary_photo == photo
 
     detail = user_client.get(reverse("bed-detail", args=[bed.pk]))
     assert b"Bed photos" in detail.content
     assert b"Early spring overview" in detail.content
     assert photo.thumb_url.encode() in detail.content
+    assert photo.web_url.encode() in detail.content
+    assert b"Primary photo" in detail.content
 
     listing = user_client.get(reverse("bed-list"))
     assert b"bed-list-thumb" in listing.content
@@ -348,7 +352,68 @@ def test_bed_photo_can_be_uploaded_displayed_and_removed(
     removed = user_client.post(reverse("bed-photo-remove", args=[bed.pk, photo.pk]))
     assert removed.status_code == 302
     assert not bed.photos.exists()
+    bed.refresh_from_db()
+    assert bed.primary_photo is None
     assert Bed.objects.filter(pk=bed.pk).exists()
+
+
+def test_bed_photo_can_be_selected_as_primary_and_used_as_cover(user_client):
+    bed = Bed.objects.create(name="Kitchen Garden")
+    first = Photo.objects.create(file="photos/first.jpg", caption="Spring")
+    second = Photo.objects.create(file="photos/second.jpg", caption="Summer")
+    bed.photos.add(first, second)
+    bed.primary_photo = first
+    bed.save(update_fields=["primary_photo"])
+
+    response = user_client.post(
+        reverse("bed-photo-make-primary", args=[bed.pk, second.pk])
+    )
+
+    assert response.status_code == 302
+    assert response.url == reverse("bed-detail", args=[bed.pk])
+    bed.refresh_from_db()
+    assert bed.primary_photo == second
+    assert bed.photos.count() == 2
+
+    detail = user_client.get(reverse("bed-detail", args=[bed.pk]))
+    assert detail.content.count(b"Primary photo") == 1
+    assert detail.content.count(b"Make primary photo") == 1
+    assert second.web_url.encode() in detail.content
+
+    listing = user_client.get(reverse("bed-list"))
+    assert second.thumb_url.encode() in listing.content
+    assert first.thumb_url.encode() not in listing.content
+
+
+def test_bed_primary_photo_action_is_post_only_and_requires_attachment(user_client):
+    bed = Bed.objects.create(name="Kitchen Garden")
+    linked = Photo.objects.create(file="photos/linked.jpg")
+    unrelated = Photo.objects.create(file="photos/unrelated.jpg")
+    bed.photos.add(linked)
+    url = reverse("bed-photo-make-primary", args=[bed.pk, linked.pk])
+
+    assert user_client.get(url).status_code == 405
+    assert user_client.post(
+        reverse("bed-photo-make-primary", args=[bed.pk, unrelated.pk])
+    ).status_code == 404
+
+
+def test_removing_primary_bed_photo_selects_another_attached_photo(user_client):
+    bed = Bed.objects.create(name="Kitchen Garden")
+    first = Photo.objects.create(file="photos/first.jpg")
+    second = Photo.objects.create(file="photos/second.jpg")
+    bed.photos.add(first, second)
+    bed.primary_photo = first
+    bed.save(update_fields=["primary_photo"])
+
+    response = user_client.post(
+        reverse("bed-photo-remove", args=[bed.pk, first.pk])
+    )
+
+    assert response.status_code == 302
+    bed.refresh_from_db()
+    assert bed.primary_photo == second
+    assert list(bed.photos.all()) == [second]
 
 
 def test_map_page_renders_with_focus(user_client):

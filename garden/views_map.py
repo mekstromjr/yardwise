@@ -147,7 +147,10 @@ def map_data(request):
     return JsonResponse({
         "width": pmap.width, "height": pmap.height,
         "grid": {"cols": pmap.grid_cols, "rows": pmap.grid_rows,
-                 "visible": pmap.grid_visible},
+                 "visible": pmap.grid_visible,
+                 "x": pmap.grid_origin_x, "y": pmap.grid_origin_y,
+                 "width": pmap.grid_extent_width or pmap.width,
+                 "height": pmap.grid_extent_height or pmap.height},
         "beds": beds, "points": points, "layers": layers,
     })
 
@@ -592,7 +595,14 @@ def _maybe_resize_space(garden, layer) -> None:
     if layer.natural_width and layer.natural_height and not _map_has_geometry(garden):
         pmap = PropertyMap.get(garden)
         pmap.width, pmap.height = layer.natural_width, layer.natural_height
-        pmap.save(update_fields=["width", "height"])
+        pmap.grid_origin_x = 0
+        pmap.grid_origin_y = 0
+        pmap.grid_extent_width = layer.natural_width
+        pmap.grid_extent_height = layer.natural_height
+        pmap.save(update_fields=[
+            "width", "height", "grid_origin_x", "grid_origin_y",
+            "grid_extent_width", "grid_extent_height",
+        ])
 
 
 ESRI_EXPORT = (
@@ -757,15 +767,24 @@ def _activate_master(garden, layer):
     ).exclude(pk=layer.pk).update(is_primary=False, visible=False)
 
     pmap = PropertyMap.get(garden)
-    if not _map_has_geometry(garden):
+    has_geometry = _map_has_geometry(garden)
+    if not has_geometry:
         pmap.width = layer.natural_width
         pmap.height = layer.natural_height
     # The master defines the clean default. Grid/record geometry remains in
     # the same permanent coordinate space and is revealed interactively.
-    pmap.grid_visible = True
-    pmap.save(update_fields=["width", "height", "grid_visible"])
-
     _fit_master_to_canvas(pmap, layer)
+    if not has_geometry or not pmap.grid_extent_width or not pmap.grid_extent_height:
+        pmap.grid_origin_x = layer.canvas_x or 0
+        pmap.grid_origin_y = layer.canvas_y or 0
+        pmap.grid_extent_width = layer.canvas_width or pmap.width
+        pmap.grid_extent_height = layer.canvas_height or pmap.height
+    pmap.grid_visible = True
+    pmap.save(update_fields=[
+        "width", "height", "grid_visible", "grid_origin_x", "grid_origin_y",
+        "grid_extent_width", "grid_extent_height",
+    ])
+
     layer.is_primary = True
     layer.visible = True
     layer.opacity = 1.0

@@ -34,6 +34,26 @@ def test_grid_cell_math():
     assert pmap.cell_for(2000, 0) == ""  # out of bounds
 
 
+def test_grid_restarts_at_a_inside_its_master_map_frame():
+    pmap = PropertyMap.get()
+    pmap.width = 1000
+    pmap.height = 800
+    pmap.grid_cols = 4
+    pmap.grid_rows = 4
+    pmap.grid_origin_x = 200
+    pmap.grid_origin_y = 100
+    pmap.grid_extent_width = 400
+    pmap.grid_extent_height = 600
+
+    assert pmap.cell_for(200, 100) == "A1"
+    assert pmap.cell_for(599, 699) == "D4"
+    assert pmap.cell_for(199, 100) == ""
+    assert pmap.cell_for(601, 100) == ""
+    assert pmap.cells_for_polygon(
+        [[200, 100], [299, 100], [299, 249], [200, 249]]
+    ) == ["A1"]
+
+
 def test_polygon_cells_err_toward_inclusion():
     pmap = PropertyMap.get()
     cells = pmap.cells_for_polygon([[50, 50], [250, 50], [250, 140], [50, 140]])
@@ -227,6 +247,15 @@ def test_map_data_payload(user_client):
     assert data["points"][0]["name"] == "Rose" and data["points"][0]["cell"] == "B2"
     assert data["points"][0]["bed_id"] == bed.pk
     assert data["points"][0]["url"] == reverse("plant-detail", args=[plant.pk])
+    assert data["grid"] == {
+        "cols": 40,
+        "rows": 32,
+        "visible": True,
+        "x": 0,
+        "y": 0,
+        "width": 1000,
+        "height": 750,
+    }
 
 
 def test_bed_detail_has_focused_map_and_coordinated_plant_sidebar(user_client):
@@ -478,6 +507,8 @@ def test_preserved_master_asset_is_exact_and_adopts_locked(user_client):
     pmap = _pmap(user_client)
     assert (pmap.width, pmap.height) == (1072.0, 1244.0)
     assert pmap.grid_visible
+    assert (pmap.grid_origin_x, pmap.grid_origin_y) == (0, 0)
+    assert (pmap.grid_extent_width, pmap.grid_extent_height) == (1072.0, 1244.0)
 
 
 def test_master_adoption_preserves_existing_geometry(user_client):
@@ -501,6 +532,14 @@ def test_master_adoption_preserves_existing_geometry(user_client):
     master = MapLayer.objects.get(kind=MapLayerKind.MASTER)
     assert master.canvas_width <= pmap.width
     assert master.canvas_height <= pmap.height
+    assert (pmap.grid_origin_x, pmap.grid_origin_y) == (
+        master.canvas_x,
+        master.canvas_y,
+    )
+    assert (pmap.grid_extent_width, pmap.grid_extent_height) == (
+        master.canvas_width,
+        master.canvas_height,
+    )
 
 
 def test_future_master_is_new_version_without_moving_geometry(user_client):
@@ -512,7 +551,14 @@ def test_future_master_is_new_version_without_moving_geometry(user_client):
     user_client.post(reverse("map-master-adopt-preserved"))
     first = MapLayer.objects.get(kind=MapLayerKind.MASTER)
     Bed.objects.create(name="Pinned", boundary=[[10, 10], [20, 10], [20, 20]])
-    before = (_pmap(user_client).width, _pmap(user_client).height)
+    original_map = _pmap(user_client)
+    before = (original_map.width, original_map.height)
+    grid_before = (
+        original_map.grid_origin_x,
+        original_map.grid_origin_y,
+        original_map.grid_extent_width,
+        original_map.grid_extent_height,
+    )
     buf = io.BytesIO()
     Image.new("RGB", (800, 600), "white").save(buf, "PNG")
 
@@ -528,6 +574,13 @@ def test_future_master_is_new_version_without_moving_geometry(user_client):
     assert second.supersedes == first
     assert not first.is_primary and not first.visible
     assert (_pmap(user_client).width, _pmap(user_client).height) == before
+    current_map = _pmap(user_client)
+    assert (
+        current_map.grid_origin_x,
+        current_map.grid_origin_y,
+        current_map.grid_extent_width,
+        current_map.grid_extent_height,
+    ) == grid_before
 
     response = user_client.post(reverse("map-master-activate", args=[first.pk]))
     assert response.status_code == 302

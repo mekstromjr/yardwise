@@ -99,9 +99,9 @@ def window_action(request):
 def bed_list(request):
     beds = models.Bed.objects.filter(
         garden=garden_for(request), archived_at__isnull=True
-    ).select_related("bed_type").prefetch_related("photos")
+    ).select_related("bed_type", "primary_photo").prefetch_related("photos")
     for bed in beds:
-        bed.cover_photo = next(iter(bed.photos.all()), None)
+        bed.cover_photo = bed.primary_photo or next(iter(bed.photos.all()), None)
         bed.plant_count = bed.plant_locations.filter(
             is_current=True, plant__status="active"
         ).count()

@@ -157,7 +157,7 @@ def bed_detail(request, pk):
     """Bed-focused map and its accessible, coordinated plant list."""
     g = garden_for(request)
     bed = get_object_or_404(
-        Bed.objects.select_related("bed_type"),
+        Bed.objects.select_related("bed_type", "primary_photo"),
         pk=pk,
         garden=g,
         archived_at__isnull=True,
@@ -206,6 +206,9 @@ def bed_photo_add(request, pk):
         photo.save()
         form.save_m2m()
         bed.photos.add(photo)
+        if not bed.primary_photo_id:
+            bed.primary_photo = photo
+            bed.save(update_fields=["primary_photo"])
         return redirect("bed-detail", pk=bed.pk)
     return render(request, "garden/beds/photo_form.html", {
         "nav": "map",
@@ -225,7 +228,26 @@ def bed_photo_remove(request, pk, photo_pk):
         archived_at__isnull=True,
     )
     photo = get_object_or_404(bed.photos.all(), pk=photo_pk)
+    if bed.primary_photo_id == photo.pk:
+        bed.primary_photo = bed.photos.exclude(pk=photo.pk).first()
+        bed.save(update_fields=["primary_photo"])
     bed.photos.remove(photo)
+    return redirect("bed-detail", pk=bed.pk)
+
+
+@login_required
+@require_POST
+def bed_photo_make_primary(request, pk, photo_pk):
+    """Select one of a bed's attached photos as its primary image."""
+    bed = get_object_or_404(
+        Bed,
+        pk=pk,
+        garden=garden_for(request),
+        archived_at__isnull=True,
+    )
+    photo = get_object_or_404(bed.photos.all(), pk=photo_pk)
+    bed.primary_photo = photo
+    bed.save(update_fields=["primary_photo"])
     return redirect("bed-detail", pk=bed.pk)
 
 

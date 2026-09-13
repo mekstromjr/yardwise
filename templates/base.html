@@ -28,6 +28,8 @@
   <a href="{% url 'journal-list' %}" class="{% if nav == 'journal' %}active{% endif %}">
     <span class="glyph">✎</span>Journal</a>
   {% if user.is_authenticated %}
+  <a href="{% url 'bed-list' %}" class="desktop-only {% if nav == 'beds' %}active{% endif %}">
+    <span class="glyph">▱</span>Beds</a>
   <a href="{% url 'map' %}" class="desktop-only {% if nav == 'map' %}active{% endif %}">
     <span class="glyph">❖</span>Map</a>
   {% if ai_enabled %}

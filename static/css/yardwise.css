@@ -864,6 +864,16 @@ nav.primary a.user-entry .user-name {
   box-shadow: 0 0 0 2px var(--card);
 }
 .bed-sidebar-note { margin: auto 12px 10px; }
+.bed-placement-controls {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+.bed-placement-controls > label { font-weight: 700; color: var(--ink); }
+.bed-placement-controls > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.bed-placement-controls select { flex: 1; min-width: 180px; }
 .bed-list-thumb {
   width: 64px;
   height: 48px;

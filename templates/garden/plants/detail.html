@@ -67,6 +67,7 @@
   <a class="btn secondary" href="{% url 'photo-add' plant.pk %}">Add photo</a>
   <a class="btn secondary" href="{% url 'problem-add' %}?plant={{ plant.pk }}">Log problem</a>
   <a class="btn secondary" href="{% url 'map' %}?plant={{ plant.pk }}">Show on map</a>
+  <a class="btn secondary" href="{% url 'map' %}?plant={{ plant.pk }}&amp;place_plant=1">Set/change map location</a>
   {% if ai_enabled %}<a class="btn secondary" href="{% url 'plant-enrich' plant.pk %}">Fill details with AI</a>{% endif %}
   <a class="btn secondary" href="{% url 'plant-edit' plant.pk %}">Edit</a>
 </div>

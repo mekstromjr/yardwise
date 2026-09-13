@@ -43,7 +43,18 @@
       <h2 id="bed-map-heading" class="visually-hidden">{{ bed.name }} map</h2>
       {% if bed.boundary %}
         <div id="map" class="property-map bed-focus-map" aria-label="Interactive map of {{ bed.name }}"></div>
-        <p class="map-help">Use +/−, scroll, or pinch to zoom. Hover over a plant dot to identify it in the list; select a dot to open the plant.</p>
+        <p class="map-help" id="bed-map-status" aria-live="polite">Use +/−, scroll, or pinch to zoom. Hover over a plant dot to identify it in the list; select a dot to open the plant.</p>
+        <div class="bed-placement-controls">
+          <label for="bed-place-plant">Place a plant in this bed</label>
+          <div>
+            <select id="bed-place-plant">
+              <option value="">Choose a plant...</option>
+              {% for plant in placeable_plants %}<option value="{{ plant.pk }}">{{ plant }}</option>{% endfor %}
+            </select>
+            <button class="btn small secondary" id="bed-place-start" type="button">Place on bed map</button>
+          </div>
+          <span class="help">Choose a plant, then tap its exact location inside this bed's outline.</span>
+        </div>
       {% else %}
         <div class="empty bed-map-empty">
           <div class="art">◇</div>
@@ -165,6 +176,16 @@
 {% if bed.boundary %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/yardwise-map.js' %}"></script>
-<script>yardwiseMap({ focusBed: "{{ bed.pk }}", bedPage: true });</script>
+<script>
+  yardwiseMap({
+    focusBed: "{{ bed.pk }}",
+    bedPage: true,
+    statusId: "bed-map-status",
+    placeStartId: "bed-place-start",
+    placeSelectId: "bed-place-plant",
+    placeBed: "{{ bed.pk }}",
+    placeBedName: "{{ bed.name|escapejs }}"
+  });
+</script>
 {% endif %}
 {% endblock %}

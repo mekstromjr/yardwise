@@ -23,6 +23,9 @@ class Bed(models.Model):
     irrigation_notes = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     photos = models.ManyToManyField("Photo", blank=True, related_name="beds")
+    primary_photo = models.ForeignKey(
+        "Photo", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     # Property-map geometry (map module): polygon vertices in map units,
     # [[x, y], ...]. The schema doc reserved this attachment point.
     boundary = models.JSONField(null=True, blank=True)

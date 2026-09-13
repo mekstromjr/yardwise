@@ -21,7 +21,7 @@
 {% endif %}
 <div id="map" class="property-map property-map-main" aria-label="Interactive property map"></div>
 
-<details class="section" style="margin-top:12px" {% if start_new_bed or edit_bed %}open{% endif %}>
+<details class="section" style="margin-top:12px" {% if start_new_bed or edit_bed or place_plant %}open{% endif %}>
   <summary>Edit the map</summary>
   <div class="inner">
     <div class="field">
@@ -171,7 +171,10 @@
     focusBed: "{{ focus_bed }}",
     editor: true,
     newBed: {% if start_new_bed %}true{% else %}false{% endif %},
-    editBed: {% if edit_bed %}"{{ edit_bed.pk }}"{% else %}null{% endif %}
+    editBed: {% if edit_bed %}"{{ edit_bed.pk }}"{% else %}null{% endif %},
+    placePlant: {% if place_plant %}"{{ place_plant.pk }}"{% else %}null{% endif %},
+    placePlantName: {% if place_plant %}"{{ place_plant|escapejs }}"{% else %}""{% endif %},
+    placeReturnUrl: {% if place_plant %}"{% url 'plant-detail' place_plant.pk %}"{% else %}null{% endif %}
   });
 </script>
 {% endblock %}

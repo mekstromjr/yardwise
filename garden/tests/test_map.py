@@ -236,6 +236,54 @@ def test_place_outside_any_bed_keeps_no_bed(user_client):
     assert r.json()["bed"] == ""
 
 
+def test_plant_profile_placement_moves_plant_to_open_ground(user_client):
+    bed = Bed.objects.create(
+        name="Front Bed", boundary=[[0, 0], [100, 0], [100, 100], [0, 100]]
+    )
+    plant = Plant.objects.create(common_name="Oak")
+    location = PlantLocation.objects.create(
+        plant=plant, bed=bed, point_x=50, point_y=50
+    )
+
+    response = user_client.post(
+        reverse("map-plant-point", args=[plant.pk]),
+        json.dumps({"x": 500, "y": 500}),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["bed_id"] is None
+    location.refresh_from_db()
+    assert location.bed is None
+
+
+def test_bed_screen_placement_requires_point_inside_selected_bed(user_client):
+    bed = Bed.objects.create(
+        name="Front Bed", boundary=[[0, 0], [100, 0], [100, 100], [0, 100]]
+    )
+    plant = Plant.objects.create(common_name="Rose")
+    url = reverse("map-plant-point", args=[plant.pk])
+
+    rejected = user_client.post(
+        url,
+        json.dumps({"x": 500, "y": 500, "expected_bed_id": bed.pk}),
+        content_type="application/json",
+    )
+    accepted = user_client.post(
+        url,
+        json.dumps({"x": 50, "y": 50, "expected_bed_id": bed.pk}),
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 400
+    assert b"Tap inside the outline for Front Bed" in rejected.content
+    assert not PlantLocation.objects.filter(plant=plant, point_x=500).exists()
+    assert accepted.status_code == 200
+    assert accepted.json()["bed_id"] == bed.pk
+    location = PlantLocation.objects.get(plant=plant)
+    assert (location.point_x, location.point_y, location.bed_id) == (50, 50, bed.pk)
+
+
 def test_map_data_payload(user_client):
     bed = Bed.objects.create(name="Front Bed", boundary=[[0, 0], [50, 0], [50, 50], [0, 50]])
     plant = Plant.objects.create(common_name="Rose")
@@ -288,6 +336,41 @@ def test_bed_detail_has_focused_map_and_coordinated_plant_sidebar(user_client):
     adjust_url = reverse("map") + f"?bed={bed.pk}&amp;edit_bed=1"
     assert adjust_url.encode() in response.content
     assert b"Adjust bed edges" in response.content
+    assert b"Place a plant in this bed" in response.content
+    assert b'id="bed-place-plant"' in response.content
+    assert b'id="bed-place-start"' in response.content
+    assert b'placeBed: "' + str(bed.pk).encode() + b'"' in response.content
+
+
+def test_plant_profile_starts_direct_map_placement(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+
+    profile = user_client.get(reverse("plant-detail", args=[plant.pk]))
+    map_page = user_client.get(
+        reverse("map"), {"plant": plant.pk, "place_plant": "1"}
+    )
+
+    placement_url = reverse("map") + f"?plant={plant.pk}&amp;place_plant=1"
+    assert placement_url.encode() in profile.content
+    assert b"Set/change map location" in profile.content
+    assert map_page.status_code == 200
+    assert b'<details class="section" style="margin-top:12px" open>' in map_page.content
+    assert f'placePlant: "{plant.pk}"'.encode() in map_page.content
+    assert reverse("plant-detail", args=[plant.pk]).encode() in map_page.content
+
+
+def test_direct_map_placement_ignores_plant_from_another_garden(user_client):
+    other_user = User.objects.create_user("plant-owner")
+    other_plant = Plant.objects.create(
+        garden=Garden.for_user(other_user), common_name="Private rose"
+    )
+
+    response = user_client.get(
+        reverse("map"), {"plant": other_plant.pk, "place_plant": "1"}
+    )
+
+    assert response.status_code == 200
+    assert b"placePlant: null" in response.content
 
 
 def test_adjust_bed_edges_link_opens_editor_for_selected_bed(user_client):

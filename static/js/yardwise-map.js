@@ -11,7 +11,8 @@ function yardwiseMap(opts) {
     scrollWheelZoom: true, attributionControl: false,
   });
   const state = { data: null, mode: "view", traceBedId: null, tracePts: [],
-                  placePlantId: null, markers: {}, bedShapes: {}, traceLayer: null,
+                  placePlantId: null, placeExpectedBedId: null,
+                  markers: {}, bedShapes: {}, traceLayer: null,
                   traceHandles: [], suggestedName: "", traceHistory: [], traceInitialPts: [],
                   mapLocked: false, suggestionRequest: 0, plantLayer: L.layerGroup() };
   const traceActions = document.getElementById("trace-actions");
@@ -58,8 +59,22 @@ function yardwiseMap(opts) {
   }
 
   function setStatus(msg) {
-    const status = document.getElementById("map-status");
+    const status = document.getElementById(opts.statusId || "map-status");
     if (status) status.textContent = msg;
+  }
+
+  function startPlantPlacement(plantId, plantName = "", expectedBedId = null) {
+    if (!plantId) {
+      setStatus("Choose the plant you want to place first.");
+      return;
+    }
+    state.mode = "place";
+    state.placePlantId = plantId;
+    state.placeExpectedBedId = expectedBedId;
+    const subject = plantName || "the plant";
+    setStatus(expectedBedId
+      ? `Tap ${subject}'s exact location inside ${opts.placeBedName || "this bed"}.`
+      : `Tap ${subject}'s exact location on the map.`);
   }
 
   function setMapLocked(locked) {
@@ -455,6 +470,7 @@ function yardwiseMap(opts) {
       m.on("mouseout", () => highlightLocation(pt.loc_id, false));
       m.on("click", event => {
         if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+        if (state.mode === "place") return;
         window.location.href = pt.url;
       });
       state.markers[pt.loc_id] = m;
@@ -506,12 +522,19 @@ function yardwiseMap(opts) {
       updateOutlineActions();
       setStatus(`Outlining: ${state.tracePts.length} point${state.tracePts.length === 1 ? "" : "s"} - keep tapping around the edge, then save or refine with AI.`);
     } else if (state.mode === "place") {
-      const res = await post(`/map/plant/${state.placePlantId}/point/`, {
-        x: Math.round(x), y: Math.round(y),
-      });
+      const payload = { x: Math.round(x), y: Math.round(y) };
+      if (state.placeExpectedBedId) {
+        payload.expected_bed_id = state.placeExpectedBedId;
+      }
+      const res = await post(`/map/plant/${state.placePlantId}/point/`, payload);
       setStatus(res.ok ? `Placed in ${res.bed || "open ground"} (${res.cell}). Reloading...`
-                       : "Could not place");
-      if (res.ok) setTimeout(() => window.location.reload(), 600);
+                       : (res.error || "Could not place the plant."));
+      if (res.ok) {
+        setTimeout(() => {
+          if (opts.placeReturnUrl) window.location.href = opts.placeReturnUrl;
+          else window.location.reload();
+        }, 600);
+      }
     }
   });
 
@@ -616,9 +639,19 @@ function yardwiseMap(opts) {
     });
     document.getElementById("place-start").addEventListener("click", () => {
       const sel = document.getElementById("place-plant");
-      if (!sel.value) { setStatus("Pick the plant to place first"); return; }
-      state.mode = "place"; state.placePlantId = sel.value;
-      setStatus("Tap the plant's spot on the map");
+      startPlantPlacement(sel.value, sel.options[sel.selectedIndex]?.text || "");
+    });
+  }
+
+  if (opts.placeStartId && opts.placeSelectId) {
+    const placeStart = document.getElementById(opts.placeStartId);
+    const placeSelect = document.getElementById(opts.placeSelectId);
+    placeStart?.addEventListener("click", () => {
+      startPlantPlacement(
+        placeSelect?.value,
+        placeSelect?.options[placeSelect.selectedIndex]?.text || "",
+        opts.placeBed || null
+      );
     });
   }
 
@@ -637,6 +670,11 @@ function yardwiseMap(opts) {
           ? `Adjusting ${bed.name}. Drag a point, add a point, undo, or save the outline.`
           : `Tap around ${bed.name} to draw its outline, then save.`);
       }
+    }
+    if (opts.editor && opts.placePlant) {
+      const selector = document.getElementById("place-plant");
+      if (selector) selector.value = String(opts.placePlant);
+      startPlantPlacement(opts.placePlant, opts.placePlantName || "the plant");
     }
   });
 }

@@ -79,6 +79,13 @@ def map_page(request):
     focus_plant = request.GET.get("plant", "")
     focus_bed = request.GET.get("bed", "")
     start_new_bed = request.GET.get("new_bed") == "1"
+    place_plant = None
+    if request.GET.get("place_plant") == "1" and focus_plant.isdigit():
+        place_plant = Plant.objects.filter(
+            garden=g,
+            pk=int(focus_plant),
+            status="active",
+        ).first()
     edit_bed = None
     if request.GET.get("edit_bed") == "1" and focus_bed.isdigit():
         edit_bed = Bed.objects.filter(
@@ -99,6 +106,7 @@ def map_page(request):
         "focus_plant": focus_plant,
         "focus_bed": focus_bed,
         "start_new_bed": start_new_bed,
+        "place_plant": place_plant,
         "edit_bed": edit_bed,
         "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
         "plants": Plant.objects.filter(garden=g, status="active"),
@@ -187,6 +195,9 @@ def bed_detail(request, pk):
         ),
         "grid_cells": pmap.cells_for_polygon(bed.boundary or []),
         "active_master": active_master,
+        "placeable_plants": Plant.objects.filter(garden=g, status="active")
+        .only("pk", "common_name", "cultivar")
+        .order_by("common_name", "cultivar", "pk"),
     })
 
 
@@ -482,17 +493,39 @@ def plant_point(request, pk):
     plant = get_object_or_404(Plant, pk=pk, garden=g)
     payload = json.loads(request.body)
     x, y = float(payload["x"]), float(payload["y"])
+    containing = _bed_containing(g, x, y)
+    expected_bed_id = payload.get("expected_bed_id")
+    if expected_bed_id is not None:
+        try:
+            expected_bed_id = int(expected_bed_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "That bed could not be identified."}, status=400)
+        expected_bed = Bed.objects.filter(
+            garden=g,
+            pk=expected_bed_id,
+            archived_at__isnull=True,
+        ).first()
+        if expected_bed is None:
+            return JsonResponse({"error": "That bed could not be found."}, status=404)
+        if containing is None or containing.pk != expected_bed.pk:
+            return JsonResponse(
+                {"error": f"Tap inside the outline for {expected_bed.name}."},
+                status=400,
+            )
     loc = plant.current_locations.first()
     if loc is None:
         loc = PlantLocation.objects.create(plant=plant)
     loc.point_x, loc.point_y = x, y
-    containing = _bed_containing(g, x, y)
-    if containing and loc.bed_id != containing.pk:
+    if loc.bed_id != (containing.pk if containing else None):
         loc.bed = containing
     loc.save()
     pmap = PropertyMap.get(g)
-    return JsonResponse({"ok": True, "cell": pmap.cell_for(x, y),
-                         "bed": loc.bed.name if loc.bed else ""})
+    return JsonResponse({
+        "ok": True,
+        "cell": pmap.cell_for(x, y),
+        "bed": loc.bed.name if loc.bed else "",
+        "bed_id": loc.bed_id,
+    })
 
 
 def _bed_containing(garden, x: float, y: float):

@@ -35,6 +35,13 @@ class PropertyMap(models.Model):
     grid_cols = models.PositiveSmallIntegerField(default=40)
     grid_rows = models.PositiveSmallIntegerField(default=32)
     grid_visible = models.BooleanField(default=True)
+    # The grid is anchored to the preserved master image, not to any wider
+    # legacy coordinate canvas around it. Once established this frame stays
+    # fixed across future master versions, just like bed and plant geometry.
+    grid_origin_x = models.FloatField(default=0)
+    grid_origin_y = models.FloatField(default=0)
+    grid_extent_width = models.FloatField(null=True, blank=True)
+    grid_extent_height = models.FloatField(null=True, blank=True)
 
     class Meta:
         verbose_name = "property map"
@@ -49,10 +56,14 @@ class PropertyMap(models.Model):
 
     def cell_for(self, x: float, y: float) -> str:
         """Grid reference (A1 top-left) for a map point; '' if out of bounds."""
-        if not (0 <= x <= self.width and 0 <= y <= self.height):
+        width = self.grid_extent_width or self.width
+        height = self.grid_extent_height or self.height
+        local_x = x - self.grid_origin_x
+        local_y = y - self.grid_origin_y
+        if not (0 <= local_x <= width and 0 <= local_y <= height):
             return ""
-        col = min(int(x / self.width * self.grid_cols), self.grid_cols - 1)
-        row = min(int(y / self.height * self.grid_rows), self.grid_rows - 1)
+        col = min(int(local_x / width * self.grid_cols), self.grid_cols - 1)
+        row = min(int(local_y / height * self.grid_rows), self.grid_rows - 1)
         return f"{_col_label(col)}{row + 1}"
 
     def cells_for_polygon(self, points: list) -> list[str]:
@@ -60,11 +71,11 @@ class PropertyMap(models.Model):
         errs toward inclusion - fine for search/filter purposes)."""
         if not points:
             return []
-        xs = [p[0] for p in points]
-        ys = [p[1] for p in points]
+        xs = [p[0] - self.grid_origin_x for p in points]
+        ys = [p[1] - self.grid_origin_y for p in points]
         cells = []
-        col_w = self.width / self.grid_cols
-        row_h = self.height / self.grid_rows
+        col_w = (self.grid_extent_width or self.width) / self.grid_cols
+        row_h = (self.grid_extent_height or self.height) / self.grid_rows
         c0, c1 = int(min(xs) // col_w), int(max(xs) // col_w)
         r0, r1 = int(min(ys) // row_h), int(max(ys) // row_h)
         for r in range(max(r0, 0), min(r1, self.grid_rows - 1) + 1):

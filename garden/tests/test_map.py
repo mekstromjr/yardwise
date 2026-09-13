@@ -540,6 +540,9 @@ def test_master_adoption_preserves_existing_geometry(user_client):
         master.canvas_width,
         master.canvas_height,
     )
+    assert pmap.grid_cols == round(40 * master.canvas_width / 1280)
+    assert pmap.grid_rows == round(32 * master.canvas_height / 900)
+    assert pmap.cell_for(master.canvas_x, master.canvas_y) == "A1"
 
 
 def test_future_master_is_new_version_without_moving_geometry(user_client):

@@ -446,6 +446,18 @@ def test_bed_list_opens_profile_instead_of_edit_form(user_client):
     assert reverse("bed-edit", args=[bed.pk]).encode() not in response.content
 
 
+def test_main_menu_links_to_beds_and_marks_bed_pages_active(user_client):
+    bed = Bed.objects.create(name="Front Bed")
+
+    listing = user_client.get(reverse("bed-list"))
+    detail = user_client.get(reverse("bed-detail", args=[bed.pk]))
+
+    menu_link = f'href="{reverse("bed-list")}" class="desktop-only active"'.encode()
+    assert menu_link in listing.content
+    assert menu_link in detail.content
+    assert b'<span class="glyph">\xe2\x96\xb1</span>Beds' in listing.content
+
+
 def test_preserved_master_asset_is_exact_and_adopts_locked(user_client):
     from garden.views_map import MASTER_MAP_PATH, MASTER_MAP_SHA256
 

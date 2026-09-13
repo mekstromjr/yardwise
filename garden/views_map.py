@@ -175,7 +175,7 @@ def bed_detail(request, pk):
         archived_at__isnull=True,
     ).first()
     return render(request, "garden/beds/detail.html", {
-        "nav": "map",
+        "nav": "beds",
         "bed": bed,
         "photos": bed.photos.prefetch_related("categories").all()[:24],
         "locations": locations,
@@ -211,7 +211,7 @@ def bed_photo_add(request, pk):
             bed.save(update_fields=["primary_photo"])
         return redirect("bed-detail", pk=bed.pk)
     return render(request, "garden/beds/photo_form.html", {
-        "nav": "map",
+        "nav": "beds",
         "bed": bed,
         "form": form,
     })

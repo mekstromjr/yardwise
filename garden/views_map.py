@@ -775,14 +775,24 @@ def _activate_master(garden, layer):
     # the same permanent coordinate space and is revealed interactively.
     _fit_master_to_canvas(pmap, layer)
     if not has_geometry or not pmap.grid_extent_width or not pmap.grid_extent_height:
+        if has_geometry:
+            # Preserve the established cell size when trimming letterboxed
+            # margins. Only the off-map cells disappear; the first retained
+            # cell is relabeled A1 instead of stretching the grid.
+            pmap.grid_cols = max(
+                1, round(pmap.grid_cols * (layer.canvas_width or pmap.width) / pmap.width)
+            )
+            pmap.grid_rows = max(
+                1, round(pmap.grid_rows * (layer.canvas_height or pmap.height) / pmap.height)
+            )
         pmap.grid_origin_x = layer.canvas_x or 0
         pmap.grid_origin_y = layer.canvas_y or 0
         pmap.grid_extent_width = layer.canvas_width or pmap.width
         pmap.grid_extent_height = layer.canvas_height or pmap.height
     pmap.grid_visible = True
     pmap.save(update_fields=[
-        "width", "height", "grid_visible", "grid_origin_x", "grid_origin_y",
-        "grid_extent_width", "grid_extent_height",
+        "width", "height", "grid_cols", "grid_rows", "grid_visible",
+        "grid_origin_x", "grid_origin_y", "grid_extent_width", "grid_extent_height",
     ])
 
     layer.is_primary = True

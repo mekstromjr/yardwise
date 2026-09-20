@@ -503,6 +503,71 @@ def test_make_primary_photo_is_post_only_and_requires_plant_link(user_client):
     ).status_code == 404
 
 
+def test_photo_can_be_moved_to_another_plant_and_repairs_primary_photos(user_client):
+    source = Plant.objects.create(common_name="Honeysuckle")
+    target = Plant.objects.create(common_name="Climbing Rose")
+    moved = Photo.objects.create(file=_png(), caption="Flowers over the arbor")
+    remaining = Photo.objects.create(file=_png(), caption="Spring foliage")
+    original_name = moved.file.name
+    source.photos.add(moved, remaining)
+    source.primary_photo = moved
+    source.save(update_fields=["primary_photo"])
+
+    response = user_client.post(
+        reverse("plant-photo-move", args=[source.pk, moved.pk]),
+        {"target_plant": target.pk},
+    )
+
+    assert response.status_code == 302
+    assert response.url == reverse("plant-photo-detail", args=[target.pk, moved.pk])
+    source.refresh_from_db()
+    target.refresh_from_db()
+    moved.refresh_from_db()
+    assert not source.photos.filter(pk=moved.pk).exists()
+    assert source.photos.filter(pk=remaining.pk).exists()
+    assert source.primary_photo == remaining
+    assert target.photos.filter(pk=moved.pk).exists()
+    assert target.primary_photo == moved
+    assert moved.caption == "Flowers over the arbor"
+    assert moved.file.name == original_name
+
+
+def test_moving_photo_preserves_existing_target_primary(user_client):
+    source = Plant.objects.create(common_name="Honeysuckle")
+    target = Plant.objects.create(common_name="Climbing Rose")
+    moved = Photo.objects.create(file=_png())
+    existing_primary = Photo.objects.create(file=_png())
+    source.photos.add(moved)
+    target.photos.add(existing_primary)
+    target.primary_photo = existing_primary
+    target.save(update_fields=["primary_photo"])
+
+    response = user_client.post(
+        reverse("plant-photo-move", args=[source.pk, moved.pk]),
+        {"target_plant": target.pk},
+    )
+
+    assert response.status_code == 302
+    target.refresh_from_db()
+    assert target.primary_photo == existing_primary
+    assert target.photos.filter(pk=moved.pk).exists()
+
+
+def test_move_photo_is_post_only_and_requires_plant_link(user_client):
+    source = Plant.objects.create(common_name="Honeysuckle")
+    target = Plant.objects.create(common_name="Climbing Rose")
+    linked = Photo.objects.create(file=_png())
+    unrelated = Photo.objects.create(file=_png())
+    source.photos.add(linked)
+    url = reverse("plant-photo-move", args=[source.pk, linked.pk])
+
+    assert user_client.get(url).status_code == 405
+    assert user_client.post(
+        reverse("plant-photo-move", args=[source.pk, unrelated.pk]),
+        {"target_plant": target.pk},
+    ).status_code == 404
+
+
 def test_plant_photo_delete_control_has_confirmation(user_client):
     plant = Plant.objects.create(common_name="Honeysuckle")
     photo = Photo.objects.create(file=_png())
@@ -554,6 +619,7 @@ def test_plant_photos_offer_lightbox_hover_details_and_context_actions(user_clie
 
 def test_plant_photo_detail_shows_full_information(user_client):
     plant = Plant.objects.create(common_name="Honeysuckle")
+    Plant.objects.create(common_name="Climbing Rose")
     category = PhotoCategory.objects.get(name="Whole plant")
     photo = Photo.objects.create(
         file=_png(),
@@ -573,6 +639,9 @@ def test_plant_photo_detail_shows_full_information(user_client):
     assert b"July 4, 2026" in response.content
     assert b"Whole plant" in response.content
     assert b"Honeysuckle" in response.content
+    assert b"Move to another plant" in response.content
+    assert b"Climbing Rose" in response.content
+    assert reverse("plant-photo-move", args=[plant.pk, photo.pk]).encode() in response.content
 
 
 def test_plant_photo_information_can_be_edited_without_replacing_file(user_client):

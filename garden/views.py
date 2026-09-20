@@ -1,4 +1,5 @@
 import datetime
+import string
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -141,13 +142,31 @@ def plant_list(request):
         use = ""
     if tag:
         plants = plants.filter(tags__id=tag)
-    plants = plants.distinct()
+    plant_rows = list(plants.distinct())
+    available_letters = {
+        plant.common_name[0].upper()
+        for plant in plant_rows
+        if plant.common_name and plant.common_name[0].upper() in string.ascii_uppercase
+    }
+    anchored_letters = set()
+    plant_items = []
+    for plant in plant_rows:
+        letter = plant.common_name[0].upper() if plant.common_name else ""
+        anchor = letter if letter in available_letters and letter not in anchored_letters else ""
+        if anchor:
+            anchored_letters.add(anchor)
+        plant_items.append({"plant": plant, "anchor": anchor})
 
     return render(request, "garden/plants/list.html", {
         "nav": "plants",
-        "plants": plants,
+        "plants": plant_rows,
+        "plant_items": plant_items,
+        "alphabet": [
+            {"letter": letter, "available": letter in available_letters}
+            for letter in string.ascii_uppercase
+        ],
         "q": q,
-        "result_count": plants.count(),
+        "result_count": len(plant_rows),
         "beds": Bed.objects.filter(garden=g, archived_at__isnull=True),
         "plant_types": PlantType.objects.filter(archived_at__isnull=True),
         "tags": Tag.objects.filter(archived_at__isnull=True),

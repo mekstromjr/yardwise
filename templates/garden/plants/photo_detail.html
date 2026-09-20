@@ -30,4 +30,25 @@
   <a class="btn" href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit photo information</a>
   <a class="btn secondary" href="{% url 'plant-detail' plant.pk %}">Back to {{ plant }}</a>
 </div>
+
+<section class="card" id="move-photo">
+  <h2>Move to another plant</h2>
+  {% if move_targets %}
+    <p class="help">The image and its information will move together. It will be removed from {{ plant }} and attached to the plant you select.</p>
+    <form method="post" action="{% url 'plant-photo-move' plant.pk photo.pk %}"
+          onsubmit="return confirm('Move this photo from {{ plant|escapejs }} to the selected plant?')">
+      {% csrf_token %}
+      <div class="field">
+        <label for="target-plant">Move photo to</label>
+        <select id="target-plant" name="target_plant" required>
+          <option value="">Choose another plant...</option>
+          {% for target in move_targets %}<option value="{{ target.pk }}">{{ target }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn secondary" type="submit">Move photo</button>
+    </form>
+  {% else %}
+    <p class="help">Add another plant before moving this photo.</p>
+  {% endif %}
+</section>
 {% endblock %}

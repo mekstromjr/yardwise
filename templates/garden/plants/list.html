@@ -64,9 +64,20 @@
 
   <p class="results-count">{{ result_count }} plant{{ result_count|pluralize }} found</p>
   {% if plants %}
+    <nav class="plant-alphabet" aria-label="Jump to plants by first letter">
+      {% for item in alphabet %}
+        {% if item.available %}
+          <a href="#plants-{{ item.letter }}" aria-label="Jump to plants beginning with {{ item.letter }}">{{ item.letter }}</a>
+        {% else %}
+          <span aria-disabled="true">{{ item.letter }}</span>
+        {% endif %}
+      {% endfor %}
+    </nav>
     <div class="plant-grid">
-      {% for plant in plants %}
-        <a class="plant-card" href="{% url 'plant-detail' plant.pk %}">
+      {% for item in plant_items %}
+        {% with plant=item.plant %}
+        <a class="plant-card" href="{% url 'plant-detail' plant.pk %}"
+           {% if item.anchor %}id="plants-{{ item.anchor }}"{% endif %}>
           <div class="photo">
             {% if plant.primary_photo %}
               <img src="{{ plant.primary_photo.thumb_url }}" alt="{{ plant }}" loading="lazy">
@@ -83,6 +94,7 @@
             </div>
           </div>
         </a>
+        {% endwith %}
       {% endfor %}
     </div>
   {% elif filters_active %}

@@ -777,6 +777,35 @@ def test_bed_archive_refused_while_plants_present(user_client):
 # --- Yard Problems (#22) -----------------------------------------------------
 
 
+def test_log_problem_from_plant_profile_defaults_to_open_plant(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+
+    profile = user_client.get(reverse("plant-detail", args=[plant.pk]))
+    response = user_client.get(reverse("problem-add"), {"plant": plant.pk})
+
+    expected_url = reverse("problem-add") + f"?plant={plant.pk}"
+    assert expected_url.encode() in profile.content
+    assert response.status_code == 200
+    assert response.context["form"].initial["plants"] == [plant.pk]
+    assert f'<option value="{plant.pk}" selected>Rose</option>'.encode() in response.content
+
+
+def test_log_problem_does_not_preselect_inaccessible_plant(user_client):
+    from garden.models import Garden
+
+    other_user = User.objects.create_user("other-problem-owner")
+    other_plant = Plant.objects.create(
+        garden=Garden.for_user(other_user),
+        common_name="Private rose",
+    )
+
+    response = user_client.get(reverse("problem-add"), {"plant": other_plant.pk})
+
+    assert response.status_code == 200
+    assert "plants" not in response.context["form"].initial
+    assert b"Private rose" not in response.content
+
+
 def test_log_problem_creates_type_and_case(user_client):
     from garden.models import ProblemCase, ProblemType
 

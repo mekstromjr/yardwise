@@ -599,6 +599,14 @@ def problem_add(request):
     g = garden_for(request)
     initial = {"first_observed": datetime.date.today()}
     plant_pk = request.GET.get("plant")
+    if plant_pk and plant_pk.isdigit():
+        selected_plant = Plant.objects.filter(
+            pk=int(plant_pk),
+            garden=g,
+            status=PlantStatus.ACTIVE,
+        ).first()
+        if selected_plant:
+            initial["plants"] = [selected_plant.pk]
     form = ProblemCaseForm(request.POST or None, request.FILES or None, initial=initial,
                            garden=g)
     if request.method == "POST" and form.is_valid():
@@ -620,8 +628,6 @@ def problem_add(request):
         for photo in _save_photos(form.cleaned_data["photos_upload"], request.user, garden=g):
             case.photos.add(photo)
         return redirect("problem-detail", pk=case.pk)
-    if plant_pk:
-        form.fields["plants"].initial = [plant_pk]
     return render(request, "garden/problems/form.html", {"nav": "plants", "form": form})
 
 

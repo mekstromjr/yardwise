@@ -93,6 +93,35 @@ def test_plant_live_search_preserves_the_active_input(user_client):
     assert b'value="blue"' in response.content
 
 
+def test_plant_list_has_sticky_alphabet_links_to_first_matching_card(user_client):
+    Plant.objects.create(common_name="Azalea")
+    Plant.objects.create(common_name="Blueberry")
+    Plant.objects.create(common_name="Bee balm")
+    Plant.objects.create(common_name="Rose")
+
+    response = user_client.get(reverse("plant-list"))
+
+    assert response.status_code == 200
+    assert b'class="plant-alphabet"' in response.content
+    assert b'href="#plants-A"' in response.content
+    assert b'href="#plants-B"' in response.content
+    assert b'href="#plants-R"' in response.content
+    assert b'href="#plants-C"' not in response.content
+    assert response.content.count(b'id="plants-B"') == 1
+    assert b'<span aria-disabled="true">C</span>' in response.content
+
+
+def test_plant_alphabet_reflects_search_results(user_client):
+    Plant.objects.create(common_name="Azalea")
+    Plant.objects.create(common_name="Blueberry")
+
+    response = user_client.get(reverse("plant-list"), {"q": "blue"})
+
+    assert b'href="#plants-B"' in response.content
+    assert b'href="#plants-A"' not in response.content
+    assert b'<span aria-disabled="true">A</span>' in response.content
+
+
 def test_plant_filters_can_be_combined(user_client):
     bed = Bed.objects.create(name="Kitchen Garden")
     other_bed = Bed.objects.create(name="Front Border")

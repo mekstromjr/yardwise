@@ -859,6 +859,17 @@ def test_log_problem_from_plant_profile_defaults_to_open_plant(user_client):
     assert f'<option value="{plant.pk}" selected>Rose</option>'.encode() in response.content
 
 
+def test_log_problem_offers_multi_photo_drag_and_drop(user_client):
+    response = user_client.get(reverse("problem-add"))
+
+    assert response.status_code == 200
+    assert b"Drag problem photos here" in response.content
+    assert b"choose from Photos or files" in response.content
+    assert b"data-photo-picker" in response.content
+    assert b"multiple" in response.content
+    assert b"js/photo-picker.js" in response.content
+
+
 def test_log_problem_does_not_preselect_inaccessible_plant(user_client):
     from garden.models import Garden
 
@@ -896,6 +907,22 @@ def test_log_problem_creates_type_and_case(user_client):
     })
     assert ProblemType.objects.count() == 1
     assert ProblemCase.objects.count() == 2
+
+
+def test_log_problem_saves_multiple_photos(user_client):
+    from garden.models import ProblemCase
+
+    response = user_client.post(reverse("problem-add"), {
+        "kind": "pest",
+        "type_name": "Aphids",
+        "first_observed": datetime.date.today(),
+        "severity": "moderate",
+        "confidence": "unknown",
+        "photos_upload": [_png(), _png()],
+    })
+
+    assert response.status_code == 302
+    assert ProblemCase.objects.get().photos.count() == 2
 
 
 def test_problem_shows_on_plant_profile_and_today(user_client):

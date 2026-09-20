@@ -130,6 +130,7 @@
           <div class="photo-info-links">
             <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Details</a>
             <a href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit</a>
+            <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}#move-photo">Move</a>
           </div>
           {% if plant.primary_photo_id == photo.pk %}
             <span class="main-photo-label">Main photo</span>

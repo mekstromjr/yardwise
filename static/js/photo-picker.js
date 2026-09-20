@@ -13,16 +13,24 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
 
   const emptyTitle = title.textContent;
   const emptyMessage = message.textContent;
+  const readyMessage = picker.dataset.photoReadyMessage ||
+    "Photo ready - save when you are finished.";
 
-  function showSelected(file) {
+  function showSelected(files) {
+    const selected = Array.from(files || []);
+    const file = selected[0];
     if (!file) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = URL.createObjectURL(file);
     preview.src = previewUrl;
     preview.hidden = false;
     icon.hidden = true;
-    title.textContent = file.name || "Photo selected";
-    message.textContent = "Photo ready - save the plant when you are finished.";
+    title.textContent = selected.length > 1
+      ? `${selected.length} photos selected`
+      : (file.name || "Photo selected");
+    message.textContent = selected.length > 1
+      ? `${selected.length} photos ready - save when you are finished.`
+      : readyMessage;
     removeButton.hidden = false;
   }
 
@@ -44,7 +52,7 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
     message.textContent = "Photo selected. A preview is not available for this format.";
   });
 
-  input.addEventListener("change", () => showSelected(input.files[0]));
+  input.addEventListener("change", () => showSelected(input.files));
   removeButton.addEventListener("click", clearSelected);
 
   const form = picker.closest("form");
@@ -70,18 +78,19 @@ document.querySelectorAll("[data-photo-picker]").forEach(picker => {
   });
 
   dropZone.addEventListener("drop", event => {
-    const file = Array.from(event.dataTransfer.files).find(item =>
+    const photos = Array.from(event.dataTransfer.files).filter(item =>
       item.type.startsWith("image/") || /\.(heic|heif)$/i.test(item.name)
     );
-    if (!file) {
+    if (!photos.length) {
       message.textContent = "That item is not a photo. Choose an image from Photos or files.";
       return;
     }
     try {
       const transfer = new DataTransfer();
-      transfer.items.add(file);
+      const accepted = input.multiple ? photos : photos.slice(0, 1);
+      accepted.forEach(file => transfer.items.add(file));
       input.files = transfer.files;
-      showSelected(file);
+      showSelected(input.files);
     } catch (error) {
       message.textContent =
         "This browser cannot receive that dragged photo. Tap the chooser instead.";

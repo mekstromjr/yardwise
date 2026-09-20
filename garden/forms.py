@@ -285,7 +285,14 @@ class ProblemCaseForm(forms.ModelForm):
         label="What is it?",
         help_text='e.g. "Bindweed", "Aphids", "Powdery mildew" - reuses the record if it exists',
     )
-    photos_upload = MultiFileField(required=False, label="Photos")
+    photos_upload = MultiFileField(
+        required=False,
+        label="Photos",
+        widget=MultiFileInput(attrs={
+            "class": "photo-input",
+            "accept": "image/*,.heic,.heif",
+        }),
+    )
 
     class Meta:
         from .models import ProblemCase

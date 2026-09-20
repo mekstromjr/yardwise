@@ -109,6 +109,54 @@ def test_enrichment_requests_practical_care_and_preserves_existing_text(monkeypa
     assert "early signs" in prompt
     requested_fields = prompt.split("containing at most these keys:", 1)[1].split("Omit", 1)[0]
     assert "spring_care" not in requested_fields
+    assert "Do not put citations or URLs inside field values" in prompt
+
+
+def test_enrichment_removes_inline_citations_and_keeps_brief_sources(monkeypatch):
+    plant = Plant(common_name="Azalea")
+
+    def fake_complete(*args, **kwargs):
+        return (
+            '{"spring_care": "Leaves may yellow. '
+            '[Azalea Society](https://www.azaleachapter.com/plant-info/evergreen-azaleas), '
+            '[UGA report](https://fieldreport.caes.uga.edu/reports/azalea.pdf)"}',
+            [{"title": "Azalea Society", "url":
+              "https://www.azaleachapter.com/plant-info/evergreen-azaleas"}],
+        )
+
+    monkeypatch.setattr(ai, "complete", fake_complete)
+    proposed = ai.enrich(plant, region="Pacific Northwest")
+
+    assert proposed["spring_care"] == "Leaves may yellow."
+    assert proposed["_sources"] == [
+        {
+            "title": "Azalea Society",
+            "url": "https://www.azaleachapter.com/plant-info/evergreen-azaleas",
+            "label": "azaleachapter.com",
+        },
+        {
+            "title": "UGA report",
+            "url": "https://fieldreport.caes.uga.edu/reports/azalea.pdf",
+            "label": "fieldreport.caes.uga.edu",
+        },
+    ]
+
+
+def test_enrichment_renders_brief_clickable_source_links(user_client, monkeypatch):
+    plant = Plant.objects.create(common_name="Azalea")
+    monkeypatch.setattr(ai, "enrich", lambda *args, **kwargs: {
+        "spring_care": "Mulch after flowering.",
+        "_sources": [{
+            "title": "A very long article title about evergreen azalea care",
+            "url": "https://www.azaleachapter.com/plant-info/evergreen-azaleas",
+        }],
+    })
+
+    response = user_client.post(reverse("plant-enrich", args=[plant.pk]))
+
+    assert response.status_code == 200
+    assert b'href="https://www.azaleachapter.com/plant-info/evergreen-azaleas"' in response.content
+    assert b">azaleachapter.com</a>" in response.content
 
 
 def test_enrich_choice_constraints_exist():

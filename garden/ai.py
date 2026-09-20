@@ -13,12 +13,16 @@ stdlib urllib on purpose - no new dependency for one JSON endpoint.
 import base64
 import json
 import os
+import re
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MIN_AI_BED_POINTS = 12
 MAX_AI_BED_POINTS = 32
+
+INLINE_SOURCE_RE = re.compile(r"\s*\[([^\]\n]+)\]\((https?://[^)\s]+)\)")
 
 
 def enabled() -> bool:
@@ -39,6 +43,44 @@ def web_search_enabled() -> bool:
 
 class AIError(Exception):
     """Raised for transport/parse failures; views translate to a calm message."""
+
+
+def _clean_inline_sources(value: str) -> tuple[str, list[dict]]:
+    """Remove provider-inserted Markdown citations from saved field text."""
+    sources = []
+
+    def collect(match):
+        sources.append({"title": match.group(1).strip(), "url": match.group(2)})
+        return ""
+
+    clean = INLINE_SOURCE_RE.sub(collect, value)
+    clean = re.sub(r"([.!?])\s*[,;]\s*", r"\1 ", clean)
+    clean = re.sub(r"\s+([,.;:])", r"\1", clean)
+    clean = re.sub(r"[ \t]{2,}", " ", clean)
+    clean = re.sub(r"\s*[,;]\s*$", "", clean).strip()
+    return clean, sources
+
+
+def brief_sources(sources: list[dict]) -> list[dict]:
+    """Return safe, deduplicated sources with compact hostname labels."""
+    result = []
+    seen = set()
+    for source in sources:
+        url = str(source.get("url") or "").strip()
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            continue
+        key = url.rstrip("/")
+        if key in seen:
+            continue
+        seen.add(key)
+        hostname = parsed.hostname.removeprefix("www.")
+        result.append({
+            "title": str(source.get("title") or hostname).strip(),
+            "url": url,
+            "label": hostname,
+        })
+    return result
 
 
 def complete(messages: list[dict], json_mode: bool = False,
@@ -244,7 +286,8 @@ def enrich(plant, region: str) -> dict:
         "For pruning_recommendations, say when and how to prune and include important "
         "times or situations when pruning should be avoided. For problems_to_watch, "
         "include only the most likely pests, diseases, and environmental stresses; "
-        "give early signs and a brief low-risk response rather than an exhaustive list."
+        "give early signs and a brief low-risk response rather than an exhaustive list. "
+        "Do not put citations or URLs inside field values; sources are handled separately."
     )
     desc = f"{plant.common_name}"
     if plant.cultivar:
@@ -269,12 +312,16 @@ def enrich(plant, region: str) -> dict:
         raise AIError(f"unparseable enrichment: {raw[:200]}") from exc
     # hard filter: empty-only, known fields, valid choices
     clean = {}
+    all_sources = list(sources)
     for field, value in proposed.items():
         if field not in empty or not isinstance(value, str) or not value.strip():
             continue
-        if field in CHOICE_FIELDS and value not in CHOICE_FIELDS[field]:
+        value, inline_sources = _clean_inline_sources(value.strip())
+        all_sources.extend(inline_sources)
+        if not value or (field in CHOICE_FIELDS and value not in CHOICE_FIELDS[field]):
             continue
-        clean[field] = value.strip()
+        clean[field] = value
+    sources = brief_sources(all_sources)
     if clean and sources:
         clean["_sources"] = sources
     return clean

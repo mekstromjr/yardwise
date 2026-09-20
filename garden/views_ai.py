@@ -165,6 +165,7 @@ def plant_enrich(request, pk):
             created_by=request.user, garden=g,
         )
         sources = proposed.pop("_sources", []) if isinstance(proposed, dict) else []
+        sources = ai.brief_sources(sources)
         fields = [(f, Plant._meta.get_field(f).verbose_name, v) for f, v in proposed.items()]
         return render(request, "garden/ai/enrich.html", {
             "nav": "plants", "plant": plant, "suggestion": suggestion, "fields": fields,

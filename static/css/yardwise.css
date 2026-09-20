@@ -521,6 +521,18 @@ nav.primary a.user-entry .user-name {
   .plant-profile-position { font-size: 11px; }
 }
 .ai-suggestion-value { white-space: pre-line; }
+.ai-sources {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+}
+.ai-sources .meta { color: var(--ink-soft); font-weight: 700; }
+.ai-sources a { overflow-wrap: anywhere; }
 .seasonal-care-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,10 +1,9 @@
 {% if sources %}
-<div style="margin-top:10px; border-top:1px solid var(--line); padding-top:8px">
-  <span class="meta" style="color:var(--ink-soft); font-weight:700">Sources</span>
-  <ul style="margin:4px 0 0; padding-left:18px">
-    {% for src in sources %}
-      <li style="font-size:13.5px"><a href="{{ src.url }}" target="_blank" rel="noopener">{{ src.title|truncatechars:80 }}</a></li>
-    {% endfor %}
-  </ul>
+<div class="ai-sources">
+  <span class="meta">Sources:</span>
+  {% for src in sources %}
+    <a href="{{ src.url }}" target="_blank" rel="noopener noreferrer"
+       title="{{ src.title }}">{{ src.label|default:src.title|truncatechars:36 }}</a>{% if not forloop.last %}<span aria-hidden="true">·</span>{% endif %}
+  {% endfor %}
 </div>
 {% endif %}

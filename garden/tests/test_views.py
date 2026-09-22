@@ -93,6 +93,40 @@ def test_plant_live_search_preserves_the_active_input(user_client):
     assert b'value="blue"' in response.content
 
 
+def test_show_on_map_disabled_without_current_map_point(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+    profile_url = reverse("plant-detail", args=[plant.pk])
+    map_url = reverse("map") + f"?plant={plant.pk}"
+
+    response = user_client.get(profile_url)
+    assert b'Show on map</span>' in response.content
+
+    bed = Bed.objects.create(name="Front border")
+    location = PlantLocation.objects.create(plant=plant, bed=bed)
+
+    response = user_client.get(profile_url)
+    assert response.status_code == 200
+    assert b'Show on map</span>' in response.content
+    assert b'aria-disabled="true" title="Set a map location to enable this"' in response.content
+    assert f'href="{map_url}">Show on map</a>'.encode() not in response.content
+    assert b"Set/change map location" in response.content
+
+    location.point_x = 0
+    location.save(update_fields=["point_x"])
+    response = user_client.get(profile_url)
+    assert b'Show on map</span>' in response.content
+
+    location.point_y = 0
+    location.save(update_fields=["point_y"])
+    response = user_client.get(profile_url)
+    assert f'href="{map_url}">Show on map</a>'.encode() in response.content
+
+    location.is_current = False
+    location.save(update_fields=["is_current"])
+    response = user_client.get(profile_url)
+    assert b'Show on map</span>' in response.content
+
+
 def test_plant_list_has_sticky_alphabet_links_to_first_matching_card(user_client):
     Plant.objects.create(common_name="Azalea")
     Plant.objects.create(common_name="Blueberry")

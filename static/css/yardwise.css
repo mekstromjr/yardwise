@@ -134,6 +134,13 @@ a { color: var(--fir); }
 .btn:hover { background: var(--fir-deep); }
 .btn:active { transform: scale(0.98); }
 .btn.secondary { background: transparent; color: var(--fir); border: 1.5px solid var(--fir); }
+.btn.is-disabled {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-color: var(--line);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .btn.warm { background: var(--terracotta); }
 
 .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; }

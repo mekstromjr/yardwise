@@ -186,6 +186,9 @@ def plant_list(request):
 @login_required
 def plant_detail(request, pk):
     plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    has_map_location = plant.status == PlantStatus.ACTIVE and plant.current_locations.filter(
+        point_x__isnull=False, point_y__isnull=False
+    ).exists()
     profile_plants = list(
         Plant.objects.filter(garden=plant.garden, status=plant.status)
         .only("pk", "common_name", "cultivar")
@@ -222,6 +225,7 @@ def plant_detail(request, pk):
     return render(request, "garden/plants/detail.html", {
         "nav": "plants",
         "plant": plant,
+        "has_map_location": has_map_location,
         "previous_plant": previous_plant,
         "next_plant": next_plant,
         "plant_position": profile_index + 1,

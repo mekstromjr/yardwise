@@ -241,6 +241,15 @@ def plant_detail(request, pk):
 
 @login_required
 @require_POST
+def plant_map_remove(request, pk):
+    """Clear a plant's current map points without changing its bed assignment."""
+    plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
+    plant.current_locations.update(point_x=None, point_y=None)
+    return redirect("plant-detail", pk=plant.pk)
+
+
+@login_required
+@require_POST
 def plant_archive(request, pk):
     plant = get_object_or_404(Plant, pk=pk, garden=garden_for(request))
     plant.status = PlantStatus.ARCHIVED

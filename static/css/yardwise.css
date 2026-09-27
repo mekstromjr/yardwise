@@ -161,6 +161,28 @@ a { color: var(--fir); }
 
 .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
+.map-location-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+}
+.map-location-summary strong { color: var(--ink); }
+.map-location-count {
+  display: inline-grid;
+  min-width: 24px;
+  min-height: 24px;
+  margin-left: 4px;
+  padding: 0 6px;
+  place-items: center;
+  color: var(--fir-deep);
+  background: var(--sky-soft);
+  border-radius: 999px;
+}
+.map-location-complete { color: var(--fir); font-weight: 700; }
+
 /* --- plant cards grid -------------------------------------------------- */
 .plant-grid {
   display: grid;
@@ -196,6 +218,12 @@ a { color: var(--fir); }
   line-height: 1.2;
 }
 .plant-card .where { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+.plant-card .map-location-needed {
+  margin-top: 5px;
+  color: var(--terracotta);
+  font-size: 11.5px;
+  font-weight: 700;
+}
 
 /* --- forms ------------------------------------------------------------- */
 label { display: block; font-weight: 700; font-size: 14px; margin-bottom: 4px; }

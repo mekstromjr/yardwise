@@ -8,6 +8,19 @@
 </header>
 
 <div id="plant-browser">
+  <div class="map-location-summary">
+    {% if selected_map_location == "unassigned" %}
+      <strong>Plants needing a map location</strong>
+      <span>{{ result_count }} plant{{ result_count|pluralize }} in this list</span>
+      <a href="{% url 'plant-list' %}">Show all plants</a>
+    {% elif unmapped_count %}
+      <a class="btn secondary" href="{% url 'plant-list' %}?map_location=unassigned">
+        Needs map location <span class="map-location-count">{{ unmapped_count }}</span>
+      </a>
+    {% else %}
+      <span class="map-location-complete">✓ All active plants have a map location</span>
+    {% endif %}
+  </div>
   <form method="get" class="plant-tools"
         hx-get="{% url 'plant-list' %}"
         hx-trigger="input changed delay:300ms from:input[type='search'], change from:select"
@@ -53,6 +66,13 @@
               {% for value, label in statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
+          <label><span>Map location</span>
+            <select name="map_location">
+              <option value="">All map locations</option>
+              <option value="unassigned" {% if selected_map_location == "unassigned" %}selected{% endif %}>Needs map location</option>
+              <option value="assigned" {% if selected_map_location == "assigned" %}selected{% endif %}>Located on map</option>
+            </select>
+          </label>
         </div>
         <div class="filter-actions">
           <button class="btn small" type="submit">Apply filters</button>
@@ -92,6 +112,7 @@
                 {% if plant.cultivar %}'{{ plant.cultivar }}'{% elif loc and loc.bed %}{{ loc.bed.name }}{% endif %}
               {% endwith %}
             </div>
+            {% if not plant.has_map_location %}<div class="map-location-needed">Needs map location</div>{% endif %}
           </div>
         </a>
         {% endwith %}

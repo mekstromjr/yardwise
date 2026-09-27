@@ -3,7 +3,7 @@ import string
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -102,15 +102,25 @@ def today(request):
 def plant_list(request):
     g = garden_for(request)
     q = request.GET.get("q", "").strip()
+    map_location = request.GET.get("map_location", "")
+    if map_location not in {"", "unassigned", "assigned"}:
+        map_location = ""
     status = request.GET.get("status", PlantStatus.ACTIVE)
     valid_statuses = {value for value, _label in PlantStatus.choices}
     if status != "all" and status not in valid_statuses:
         status = PlantStatus.ACTIVE
 
+    mapped_location = PlantLocation.objects.filter(
+        plant_id=OuterRef("pk"),
+        is_current=True,
+        point_x__isnull=False,
+        point_y__isnull=False,
+    )
     plants = (
         Plant.objects.filter(garden=g)
         .select_related("primary_photo")
         .prefetch_related("locations__bed")
+        .annotate(has_map_location=Exists(mapped_location))
     )
     if status != "all":
         plants = plants.filter(status=status)
@@ -142,6 +152,10 @@ def plant_list(request):
         use = ""
     if tag:
         plants = plants.filter(tags__id=tag)
+    if map_location == "unassigned":
+        plants = plants.filter(has_map_location=False)
+    elif map_location == "assigned":
+        plants = plants.filter(has_map_location=True)
     plant_rows = list(plants.distinct())
     available_letters = {
         plant.common_name[0].upper()
@@ -176,10 +190,19 @@ def plant_list(request):
         "selected_use": use,
         "selected_tag": tag,
         "selected_status": status,
-        "advanced_filters_active": any(
-            (bed, plant_type, use, tag, status != PlantStatus.ACTIVE)
+        "selected_map_location": map_location,
+        "unmapped_count": (
+            Plant.objects.filter(garden=g, status=PlantStatus.ACTIVE)
+            .annotate(has_map_location=Exists(mapped_location))
+            .filter(has_map_location=False)
+            .count()
         ),
-        "filters_active": any((q, bed, plant_type, use, tag, status != PlantStatus.ACTIVE)),
+        "advanced_filters_active": any(
+            (bed, plant_type, use, tag, map_location, status != PlantStatus.ACTIVE)
+        ),
+        "filters_active": any(
+            (q, bed, plant_type, use, tag, map_location, status != PlantStatus.ACTIVE)
+        ),
     })
 
 

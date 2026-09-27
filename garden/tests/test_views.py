@@ -93,6 +93,49 @@ def test_plant_live_search_preserves_the_active_input(user_client):
     assert b'value="blue"' in response.content
 
 
+def test_plant_list_identifies_and_filters_plants_needing_map_location(user_client):
+    Plant.objects.create(common_name="Azalea")
+    partial = Plant.objects.create(common_name="Bee balm")
+    mapped = Plant.objects.create(common_name="Cedar")
+    historical = Plant.objects.create(common_name="Dahlia")
+    archived = Plant.objects.create(common_name="Elderberry", status=PlantStatus.ARCHIVED)
+    PlantLocation.objects.create(plant=partial, point_x=25)
+    PlantLocation.objects.create(plant=mapped, point_x=0, point_y=0)
+    PlantLocation.objects.create(
+        plant=historical, point_x=50, point_y=75, is_current=False
+    )
+
+    response = user_client.get(reverse("plant-list"))
+    assert response.status_code == 200
+    assert b"Needs map location" in response.content
+    assert b'<span class="map-location-count">3</span>' in response.content
+    assert b'name="map_location"' in response.content
+    assert b"Azalea" in response.content
+    assert b"Cedar" in response.content
+    assert b"Elderberry" not in response.content
+
+    response = user_client.get(
+        reverse("plant-list"), {"map_location": "unassigned"}
+    )
+    assert response.status_code == 200
+    assert b"Plants needing a map location" in response.content
+    assert b"Azalea" in response.content
+    assert b"Bee balm" in response.content
+    assert b"Dahlia" in response.content
+    assert b"Cedar" not in response.content
+    assert b"Elderberry" not in response.content
+    assert response.content.count(b'class="map-location-needed"') == 3
+
+    response = user_client.get(reverse("plant-list"), {"map_location": "assigned"})
+    assert b"Cedar" in response.content
+    assert b"Azalea" not in response.content
+    assert b"Bee balm" not in response.content
+    assert b"Dahlia" not in response.content
+
+    archived.refresh_from_db()
+    assert archived.status == PlantStatus.ARCHIVED
+
+
 def test_show_on_map_prompts_to_assign_missing_current_map_point(user_client):
     plant = Plant.objects.create(common_name="Rose")
     profile_url = reverse("plant-detail", args=[plant.pk])

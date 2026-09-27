@@ -133,6 +133,51 @@ def test_show_on_map_prompts_to_assign_missing_current_map_point(user_client):
     assert b'data-location-prompt-open>Show on map</button>' in response.content
 
 
+def test_remove_from_map_clears_point_but_preserves_bed_assignment(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+    bed = Bed.objects.create(name="Front border")
+    location = PlantLocation.objects.create(
+        plant=plant,
+        bed=bed,
+        point_x=125,
+        point_y=250,
+        location_note="Near the path",
+    )
+    profile_url = reverse("plant-detail", args=[plant.pk])
+    remove_url = reverse("plant-map-remove", args=[plant.pk])
+
+    response = user_client.get(profile_url)
+    assert response.status_code == 200
+    assert b'data-map-remove-open>Remove from map</button>' in response.content
+    assert f'action="{remove_url}"'.encode() in response.content
+    assert b"Only its precise point on the map will be removed" in response.content
+    assert b"Keep on map" in response.content
+    assert b"js/plant-map-remove.js" in response.content
+
+    response = user_client.post(remove_url)
+    assert response.status_code == 302
+    assert response.url == profile_url
+    location.refresh_from_db()
+    assert location.point_x is None
+    assert location.point_y is None
+    assert location.bed == bed
+    assert location.location_note == "Near the path"
+
+    response = user_client.get(profile_url)
+    assert b'data-map-remove-open' not in response.content
+    assert b'data-location-prompt-open>Show on map</button>' in response.content
+
+
+def test_remove_from_map_requires_post(user_client):
+    plant = Plant.objects.create(common_name="Rose")
+    location = PlantLocation.objects.create(plant=plant, point_x=10, point_y=20)
+    remove_url = reverse("plant-map-remove", args=[plant.pk])
+
+    assert user_client.get(remove_url).status_code == 405
+    location.refresh_from_db()
+    assert (location.point_x, location.point_y) == (10, 20)
+
+
 def test_plant_list_has_sticky_alphabet_links_to_first_matching_card(user_client):
     Plant.objects.create(common_name="Azalea")
     Plant.objects.create(common_name="Blueberry")

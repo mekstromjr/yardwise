@@ -77,6 +77,7 @@ def test_cross_garden_detail_urls_return_404(client, alice, bob):
     assert client.get(reverse("plant-detail", args=[plant.pk])).status_code == 404
     assert client.post(reverse("plant-archive", args=[plant.pk])).status_code == 404
     assert client.post(reverse("plant-delete", args=[plant.pk])).status_code == 404
+    assert client.post(reverse("plant-map-remove", args=[plant.pk])).status_code == 404
     assert client.post(
         reverse("plant-photo-remove", args=[plant.pk, photo.pk])
     ).status_code == 404

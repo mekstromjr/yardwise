@@ -68,6 +68,7 @@
   <a class="btn secondary" href="{% url 'problem-add' %}?plant={{ plant.pk }}">Log problem</a>
   {% if has_map_location %}
     <a class="btn secondary" href="{% url 'map' %}?plant={{ plant.pk }}">Show on map</a>
+    <button class="btn secondary" type="button" data-map-remove-open>Remove from map</button>
   {% else %}
     <button class="btn secondary" type="button" data-location-prompt-open>Show on map</button>
   {% endif %}
@@ -89,6 +90,24 @@
   </div>
 </dialog>
 <script src="{% static 'js/plant-location-prompt.js' %}" defer></script>
+{% endif %}
+
+{% if has_map_location %}
+<dialog class="location-prompt" data-map-remove-prompt aria-labelledby="map-remove-title">
+  <div class="location-prompt-card">
+    <div class="kicker">Remove map location</div>
+    <h2 id="map-remove-title">Remove {{ plant.common_name }} from the map?</h2>
+    <p>The plant and its bed assignment will be kept. Only its precise point on the map will be removed.</p>
+    <div class="location-prompt-actions">
+      <form method="post" action="{% url 'plant-map-remove' plant.pk %}">
+        {% csrf_token %}
+        <button class="btn warm" type="submit">Remove from map</button>
+      </form>
+      <button class="btn secondary" type="button" data-map-remove-close>Keep on map</button>
+    </div>
+  </div>
+</dialog>
+<script src="{% static 'js/plant-map-remove.js' %}" defer></script>
 {% endif %}
 
 {% if season_total %}

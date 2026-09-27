@@ -25,6 +25,11 @@ urlpatterns = [
     path("plants/<int:pk>/archive/", views.plant_archive, name="plant-archive"),
     path("plants/<int:pk>/unarchive/", views.plant_unarchive, name="plant-unarchive"),
     path("plants/<int:pk>/delete/", views.plant_delete, name="plant-delete"),
+    path(
+        "plants/<int:pk>/map/remove/",
+        views.plant_map_remove,
+        name="plant-map-remove",
+    ),
     path("plants/<int:pk>/activity/add/", views.activity_add, name="activity-add"),
     path("plants/<int:pk>/harvest/add/", views.harvest_add, name="harvest-add"),
     path("plants/<int:pk>/photos/add/", views.photo_add, name="photo-add"),

@@ -134,14 +134,30 @@ a { color: var(--fir); }
 .btn:hover { background: var(--fir-deep); }
 .btn:active { transform: scale(0.98); }
 .btn.secondary { background: transparent; color: var(--fir); border: 1.5px solid var(--fir); }
-.btn.is-disabled {
-  color: var(--ink-soft);
-  background: var(--paper);
-  border-color: var(--line);
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 .btn.warm { background: var(--terracotta); }
+
+.location-prompt {
+  width: min(440px, calc(100% - 32px));
+  margin: auto;
+  padding: 0;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 60px rgb(43 58 44 / 28%);
+}
+.location-prompt::backdrop { background: rgb(43 58 44 / 58%); }
+.location-prompt-card { padding: 22px; }
+.location-prompt-card .kicker {
+  color: var(--terracotta);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.location-prompt-card h2 { margin-top: 3px; }
+.location-prompt-card p { color: var(--ink-soft); }
+.location-prompt-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 

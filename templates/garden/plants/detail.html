@@ -69,12 +69,27 @@
   {% if has_map_location %}
     <a class="btn secondary" href="{% url 'map' %}?plant={{ plant.pk }}">Show on map</a>
   {% else %}
-    <span class="btn secondary is-disabled" aria-disabled="true" title="Set a map location to enable this">Show on map</span>
+    <button class="btn secondary" type="button" data-location-prompt-open>Show on map</button>
   {% endif %}
   <a class="btn secondary" href="{% url 'map' %}?plant={{ plant.pk }}&amp;place_plant=1">Set/change map location</a>
   {% if ai_enabled %}<a class="btn secondary" href="{% url 'plant-enrich' plant.pk %}">Fill details with AI</a>{% endif %}
   <a class="btn secondary" href="{% url 'plant-edit' plant.pk %}">Edit</a>
 </div>
+
+{% if not has_map_location %}
+<dialog class="location-prompt" data-location-prompt aria-labelledby="location-prompt-title">
+  <div class="location-prompt-card">
+    <div class="kicker">Map location needed</div>
+    <h2 id="location-prompt-title">{{ plant.common_name }} is not on the map yet</h2>
+    <p>Assign a point on the property map before trying to show this plant’s location.</p>
+    <div class="location-prompt-actions">
+      <a class="btn" href="{% url 'map' %}?plant={{ plant.pk }}&amp;place_plant=1">Assign location on map</a>
+      <button class="btn secondary" type="button" data-location-prompt-close>Do it later</button>
+    </div>
+  </div>
+</dialog>
+<script src="{% static 'js/plant-location-prompt.js' %}" defer></script>
+{% endif %}
 
 {% if season_total %}
 <section class="card">

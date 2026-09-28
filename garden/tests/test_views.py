@@ -710,7 +710,7 @@ def test_moving_photo_preserves_existing_target_primary(user_client):
     assert target.photos.filter(pk=moved.pk).exists()
 
 
-def test_move_photo_is_post_only_and_requires_plant_link(user_client):
+def test_move_photo_page_requires_plant_link_and_valid_target(user_client):
     source = Plant.objects.create(common_name="Honeysuckle")
     target = Plant.objects.create(common_name="Climbing Rose")
     linked = Photo.objects.create(file=_png())
@@ -718,7 +718,17 @@ def test_move_photo_is_post_only_and_requires_plant_link(user_client):
     source.photos.add(linked)
     url = reverse("plant-photo-move", args=[source.pk, linked.pk])
 
-    assert user_client.get(url).status_code == 405
+    response = user_client.get(url)
+    assert response.status_code == 200
+    assert b"Choose the plant this photo belongs to" in response.content
+    assert b"Climbing Rose" in response.content
+
+    response = user_client.post(url, {"target_plant": ""})
+    assert response.status_code == 200
+    assert b"Choose a plant to move this photo to" in response.content
+    assert source.photos.filter(pk=linked.pk).exists()
+    assert not target.photos.filter(pk=linked.pk).exists()
+
     assert user_client.post(
         reverse("plant-photo-move", args=[source.pk, unrelated.pk]),
         {"target_plant": target.pk},
@@ -796,8 +806,7 @@ def test_plant_photo_detail_shows_full_information(user_client):
     assert b"July 4, 2026" in response.content
     assert b"Whole plant" in response.content
     assert b"Honeysuckle" in response.content
-    assert b"Move to another plant" in response.content
-    assert b"Climbing Rose" in response.content
+    assert b"Move photo" in response.content
     assert reverse("plant-photo-move", args=[plant.pk, photo.pk]).encode() in response.content
 
 

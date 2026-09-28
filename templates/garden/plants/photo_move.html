@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Move photo - {{ plant }} - YardWise{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="kicker">{{ plant }}</div>
+  <h1>Move photo</h1>
+  <div class="sub">Choose the plant this photo belongs to.</div>
+</header>
+
+<section class="card photo-move-card">
+  <img src="{{ photo.thumb_url }}" alt="{{ photo.caption|default:plant }}">
+  <div>
+    <h2>Move from {{ plant }}</h2>
+    <p>The original image and all its information will move together. It will no longer appear under {{ plant }}.</p>
+    {% if move_targets %}
+      <form method="post" action="{% url 'plant-photo-move' plant.pk photo.pk %}">
+        {% csrf_token %}
+        <div class="field">
+          <label for="target-plant">Move photo to</label>
+          <select id="target-plant" name="target_plant" required aria-describedby="move-photo-help{% if move_error %} move-photo-error{% endif %}">
+            <option value="">Choose another plant...</option>
+            {% for target in move_targets %}
+              <option value="{{ target.pk }}" {% if request.POST.target_plant == target.pk|stringformat:"s" %}selected{% endif %}>{{ target }}</option>
+            {% endfor %}
+          </select>
+          <div class="help" id="move-photo-help">The plant’s existing main photo will not be replaced.</div>
+          {% if move_error %}<div class="errors" id="move-photo-error">{{ move_error }}</div>{% endif %}
+        </div>
+        <div class="quick-actions">
+          <button class="btn" type="submit">Move photo</button>
+          <a class="btn secondary" href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Cancel</a>
+        </div>
+      </form>
+    {% else %}
+      <p class="help">There are no other active plants available. Add another plant before moving this photo.</p>
+      <a class="btn secondary" href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Back to photo</a>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -163,12 +163,13 @@
         <nav class="photo-context-menu" data-photo-menu aria-label="Photo options" hidden>
           <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Open full information</a>
           <a href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit photo information</a>
+          <a href="{% url 'plant-photo-move' plant.pk photo.pk %}">Move photo</a>
         </nav>
         <div class="plant-photo-actions">
           <div class="photo-info-links">
             <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}">Details</a>
             <a href="{% url 'plant-photo-edit' plant.pk photo.pk %}">Edit</a>
-            <a href="{% url 'plant-photo-detail' plant.pk photo.pk %}#move-photo">Move</a>
+            <a href="{% url 'plant-photo-move' plant.pk photo.pk %}">Move</a>
           </div>
           {% if plant.primary_photo_id == photo.pk %}
             <span class="main-photo-label">Main photo</span>

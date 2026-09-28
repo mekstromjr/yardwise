@@ -528,10 +528,6 @@ def plant_photo_detail(request, pk, photo_pk):
         "plant": plant,
         "photo": photo,
         "associated_plants": photo.plants.filter(garden=plant.garden).order_by("common_name"),
-        "move_targets": Plant.objects.filter(
-            garden=plant.garden,
-            status=PlantStatus.ACTIVE,
-        ).exclude(pk=plant.pk).order_by("common_name", "cultivar", "pk"),
     })
 
 
@@ -574,21 +570,35 @@ def plant_photo_make_primary(request, pk, photo_pk):
 
 
 @login_required
-@require_POST
 @transaction.atomic
 def plant_photo_move(request, pk, photo_pk):
-    """Move one photo association to another active plant in the same garden."""
+    """Choose a destination and move one photo association to another plant."""
     garden = garden_for(request)
     source = get_object_or_404(Plant, pk=pk, garden=garden)
     photo = get_object_or_404(source.photos.all(), pk=photo_pk)
-    target = get_object_or_404(
-        Plant,
-        pk=request.POST.get("target_plant"),
+    targets = Plant.objects.filter(
         garden=garden,
         status=PlantStatus.ACTIVE,
-    )
-    if target.pk == source.pk:
-        return redirect("plant-photo-detail", pk=source.pk, photo_pk=photo.pk)
+    ).exclude(pk=source.pk).order_by("common_name", "cultivar", "pk")
+
+    if request.method != "POST":
+        return render(request, "garden/plants/photo_move.html", {
+            "nav": "plants",
+            "plant": source,
+            "photo": photo,
+            "move_targets": targets,
+        })
+
+    target_id = request.POST.get("target_plant", "")
+    target = targets.filter(pk=target_id).first() if target_id.isdigit() else None
+    if target is None:
+        return render(request, "garden/plants/photo_move.html", {
+            "nav": "plants",
+            "plant": source,
+            "photo": photo,
+            "move_targets": targets,
+            "move_error": "Choose a plant to move this photo to.",
+        })
 
     target.photos.add(photo)
     if not target.primary_photo_id:

@@ -36,4 +36,4 @@ tags (see HANDOVER.md). Work is tracked in this project's
 - Deployed by Flux from `meklab/k8s`; releases promoted automatically by
   Flux image automation watching semver tags
 
-Maintained with love by the Ekstrom family.
+Built and maintained for one family's garden.

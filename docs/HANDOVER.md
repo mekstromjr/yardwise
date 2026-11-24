@@ -52,7 +52,7 @@ never show them raw tokens or stack traces without a translation.
   ```bash
   uv sync && uv run python manage.py migrate
   uv run python manage.py createsuperuser   # local-only login
-  uv run python manage.py runserver         # http://localhost:8000
+  DJANGO_DEBUG=true uv run python manage.py runserver   # http://localhost:8000
   ```
 
 ### The release lifecycle (the only path to production)

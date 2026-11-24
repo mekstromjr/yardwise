@@ -3,7 +3,7 @@
 What is protected, where it lives, and exactly how to get it back.
 Audience: Michael (or a future maintainer with cluster access) - restores are
 NOT a family-side operation; the family's job is only to report "something's
-wrong" (see HANDOVER.md).
+wrong" (see [HANDOVER.md](HANDOVER.md)).
 
 ## What gets backed up
 

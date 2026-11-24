@@ -1,5 +1,5 @@
 # Local development only - production runs in k3s via Flux (meklab/k8s).
-# Usage: docker compose up -d db && uv run python manage.py migrate && uv run python manage.py runserver
+# Optional: a local Postgres for development. See "Run it locally" in README.md.
 services:
   db:
     image: postgres:17.5
